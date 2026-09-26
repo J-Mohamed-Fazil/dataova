@@ -1,0 +1,26 @@
+Employee_ID,Department,Job_Role,Salary,Performance_Score,Tenure_Years,Attrition,Training_Hours,Remote_Ratio
+EMP-101,Engineering,Software Engineer,85000,4.2,3.5,No,45,0.8
+EMP-102,Engineering,Senior Architect,135000,4.8,6.2,No,30,0.5
+EMP-103,Engineering,DevOps Engineer,92000,3.9,2.1,No,50,1.0
+EMP-104,Sales,Account Executive,65000,3.5,1.8,Yes,25,0.2
+EMP-105,Sales,Sales Manager,110000,4.5,5.0,No,35,0.3
+EMP-106,Sales,Sales Associate,48000,2.8,0.9,Yes,20,0.0
+EMP-107,Marketing,Growth Marketer,72000,4.1,2.5,No,40,0.6
+EMP-108,Marketing,Content Specialist,58000,3.7,1.5,No,35,0.7
+EMP-109,Marketing,Creative Director,125000,4.6,7.0,No,28,0.4
+EMP-110,Finance,Financial Analyst,75000,4.0,3.0,No,42,0.5
+EMP-111,Finance,Controller,115000,4.7,8.0,No,24,0.3
+EMP-112,Human Resources,HR Generalist,62000,3.8,2.2,No,38,0.5
+EMP-113,Human Resources,Talent Recruiter,60000,3.2,1.2,Yes,30,0.8
+EMP-114,Engineering,QA Engineer,70000,3.9,2.8,No,48,0.9
+EMP-115,Engineering,Data Scientist,105000,4.6,4.0,No,55,0.8
+EMP-116,Sales,Account Executive,68000,3.8,2.0,No,30,0.3
+EMP-117,Engineering,Software Engineer,88000,4.3,3.0,No,44,0.8
+EMP-118,Finance,Senior Accountant,82000,4.2,4.5,No,32,0.4
+EMP-119,Marketing,SEO Analyst,62000,3.6,1.9,No,36,0.7
+EMP-120,Engineering,Software Engineer,82000,3.1,1.1,Yes,18,0.5
+EMP-121,Sales,Enterprise Rep,95000,4.4,3.8,No,38,0.4
+EMP-122,Engineering,Engineering Director,165000,4.9,9.5,No,22,0.4
+EMP-123,Human Resources,People Ops Manager,90000,4.5,5.2,No,40,0.6
+EMP-124,Finance,Treasury Specialist,78000,3.9,3.2,No,35,0.5
+EMP-125,Sales,Sales Associate,46000,2.6,0.7,Yes,15,0.0

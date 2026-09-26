@@ -1,0 +1,7 @@
+Customer_ID,Customer_Name,Customer_Segment,Region,Country,Loyalty_Tier
+CUST-001,Acme Enterprises,Corporate,North,USA,Platinum
+CUST-002,Global Tech Solutions,Small Business,South,USA,Gold
+CUST-003,Apex Innovations,Enterprise,West,USA,Platinum
+CUST-004,Pioneer Retail,Consumer,East,USA,Silver
+CUST-005,Summit Media,Corporate,North,Canada,Gold
+CUST-006,Vanguard Health,Enterprise,West,Canada,Platinum

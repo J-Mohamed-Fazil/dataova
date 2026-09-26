@@ -1,0 +1,26 @@
+{
+  "short_name": "Datanova",
+  "name": "Datanova AI — Autonomous Data Intelligence Platform",
+  "description": "Upload any raw CSV/Excel, uncover statistical anomalies, compute domain KPIs, and explore multi-dimensional intelligence.",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512",
+      "purpose": "any maskable"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#060D1F",
+  "theme_color": "#060D1F",
+  "display": "standalone",
+  "orientation": "any",
+  "categories": ["business", "productivity", "utilities"],
+  "scope": "/"
+}
