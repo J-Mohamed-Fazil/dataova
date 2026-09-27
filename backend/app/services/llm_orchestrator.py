@@ -131,15 +131,17 @@ class LLMOrchestrator:
             try:
                 gemini_key = getattr(settings, "effective_gemini_key", settings.GEMINI_API_KEY)
                 models_to_try = [
-                    settings.GEMINI_MODEL or "gemini-3.1-flash-lite",
-                    "gemini-3.1-flash-lite",
-                    "gemini-3.8-flash",
-                    "gemini-flash-latest"
+                    settings.GEMINI_MODEL or "gemini-2.5-flash",
+                    "gemini-2.5-flash",
+                    "gemini-2.0-flash",
+                    "gemini-1.5-flash",
+                    "gemini-1.5-pro",
+                    "gemini-2.0-flash-lite"
                 ]
                 
                 # Remove duplicates while preserving order
                 seen = set()
-                unique_models = [m for m in models_to_try if not (m in seen or seen.add(m))]
+                unique_models = [m for m in models_to_try if m and not (m in seen or seen.add(m))]
 
                 for model_name in unique_models:
                     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={gemini_key}"
@@ -330,10 +332,12 @@ class LLMOrchestrator:
             try:
                 gemini_key = getattr(settings, "effective_gemini_key", settings.GEMINI_API_KEY)
                 models_to_try = [
-                    settings.GEMINI_MODEL or "gemini-3.1-flash-lite",
-                    "gemini-3.1-flash-lite",
-                    "gemini-3.8-flash",
-                    "gemini-flash-latest"
+                    settings.GEMINI_MODEL or "gemini-2.5-flash",
+                    "gemini-2.5-flash",
+                    "gemini-2.0-flash",
+                    "gemini-1.5-flash",
+                    "gemini-1.5-pro",
+                    "gemini-2.0-flash-lite"
                 ]
                 seen = set()
                 unique_models = [m for m in models_to_try if m and not (m in seen or seen.add(m))]

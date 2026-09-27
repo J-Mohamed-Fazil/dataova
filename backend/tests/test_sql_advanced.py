@@ -138,3 +138,64 @@ def test_sql_engine_date_extraction():
     assert "error" not in exec_res
     assert exec_res["rows"][0]["sum_revenue"] == 300.0
 
+
+def test_sql_engine_multi_word_and_id_handling(sales_df):
+    """Tests that 'by customer' correctly picks Customer_Name over Order_ID and generates valid SQL & Pandas."""
+    res = SQLEngine.generate_sql_from_nl(sales_df, "Show top 5 customers by sales")
+    assert "Customer_Name" in res["sql_query"]
+    assert "Order_ID" not in res["sql_query"]
+    assert "GROUP BY [Customer_Name]" in res["sql_query"]
+    assert "sort_values" in res["pandas_code"]
+
+    exec_res = SQLEngine.execute_sql({"data": sales_df}, res["sql_query"])
+    assert "error" not in exec_res
+    assert len(exec_res["rows"]) == 5
+
+
+def test_sql_engine_extended_comparison_operators(sales_df):
+    """Tests natural language operators like 'over', 'under', 'at least'."""
+    res_over = SQLEngine.generate_sql_from_nl(sales_df, "Show records with sales over 500")
+    assert "[Sales] > 500" in res_over["sql_query"]
+
+    res_loss = SQLEngine.generate_sql_from_nl(sales_df, "Show all loss making records")
+    assert "[Profit] < 0" in res_loss["sql_query"]
+
+
+def test_sql_engine_relational_join_synthesis():
+    """Tests automatic EER relational JOIN synthesis when dimension and metric reside in separate tables."""
+    categories_df = pd.DataFrame({
+        "category_id": [1, 2, 3],
+        "category_name": ["Technology", "Furniture", "Office Supplies"]
+    })
+    orders_df = pd.DataFrame({
+        "order_id": [101, 102, 103, 104, 105],
+        "category_id": [1, 1, 2, 3, 2],
+        "revenue": [500.0, 750.0, 300.0, 150.0, 450.0],
+        "quantity": [2, 3, 1, 5, 2]
+    })
+    all_dfs = {
+        "categories": categories_df,
+        "orders": orders_df
+    }
+
+    res = SQLEngine.generate_sql_from_nl(
+        df=categories_df,
+        nl_prompt="Show top 10 category_id by total Revenue",
+        table_name="categories",
+        all_dfs=all_dfs
+    )
+
+    assert "JOIN [orders]" in res["sql_query"]
+    assert "[categories].[category_id] = [orders].[category_id]" in res["sql_query"] or "[orders].[category_id] = [categories].[category_id]" in res["sql_query"]
+    assert "merge" in res["pandas_code"]
+
+    # Execute against SQLite sandbox with all mounted tables
+    exec_res = SQLEngine.execute_sql(all_dfs, res["sql_query"], question="Show top 10 category_id by total Revenue")
+    assert "error" not in exec_res
+    # Top performer has 500 + 750 = 1250 total revenue
+    first_row = exec_res["rows"][0]
+    assert first_row.get("category_name") == "Technology" or first_row.get("category_id") == 1
+    assert first_row["sum_revenue"] == 1250.0
+
+
+

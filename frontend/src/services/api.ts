@@ -766,7 +766,10 @@ export const api = {
         table_name: tableName
       })
     });
-    if (!res.ok) throw new Error('Failed to translate natural language to SQL');
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: 'Failed to translate natural language to SQL' }));
+      throw new Error(err.detail || 'Failed to translate natural language to SQL');
+    }
     return res.json();
   },
 

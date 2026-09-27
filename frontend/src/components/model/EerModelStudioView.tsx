@@ -49,9 +49,6 @@ interface TablePosition {
 export const EerModelStudioView: React.FC = () => {
   const { currentDataset } = useWorkspace();
 
-  // Scope: 'current' (current active dataset) vs 'all' (enterprise multi-dataset graph)
-  const [scope, setScope] = useState<'current' | 'all'>('current');
-
   // Schema graph state
   const [graphData, setGraphData] = useState<EerSchemaGraph | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -102,12 +99,12 @@ export const EerModelStudioView: React.FC = () => {
   // Canvas element reference
   const canvasRef = useRef<HTMLDivElement>(null);
 
-  // 1. Fetch schema graph
+  // 1. Fetch schema graph for the current active dataset
   const loadGraph = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const dsParam = scope === 'current' && currentDataset ? currentDataset.id : undefined;
+      const dsParam = currentDataset ? currentDataset.id : undefined;
       const res = await api.getModelSchemaGraph(dsParam);
       setGraphData(res);
 
@@ -141,7 +138,7 @@ export const EerModelStudioView: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [scope, currentDataset]);
+  }, [currentDataset]);
 
   useEffect(() => {
     loadGraph();
@@ -321,11 +318,15 @@ export const EerModelStudioView: React.FC = () => {
 
   // Create Manual Relationship
   const handleCreateRelationship = async () => {
-    if (!currentDataset || !createSrcTable || !createSrcCol || !createTgtTable || !createTgtCol) return;
+    if (!createSrcTable || !createSrcCol || !createTgtTable || !createTgtCol) return;
+    const srcTblObj = graphData?.tables.find((t) => t.table_name === createSrcTable);
+    const effectiveDsId = srcTblObj?.dataset_id || currentDataset?.id;
+    if (!effectiveDsId) return;
+
     try {
       setIsCreatingRel(true);
       await api.createRelationship({
-        dataset_id: currentDataset.id,
+        dataset_id: effectiveDsId,
         source_table: createSrcTable,
         source_column: createSrcCol,
         target_table: createTgtTable,
@@ -362,11 +363,16 @@ export const EerModelStudioView: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-black tracking-tight text-white font-sans">
-                Enterprise E-ER Diagram & Relational Model
+                E-ER Relational Model & Schema Studio
               </h1>
               <span className="badge-neon-purple text-[9px] font-mono uppercase px-2 py-0.5 rounded font-extrabold">
                 MODEL VIEW
               </span>
+              {graphData && (
+                <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-800/60">
+                  {graphData.total_tables} Tables &bull; {graphData.total_relationships} Relationships
+                </span>
+              )}
             </div>
             <p className="text-[11px] text-slate-400 font-medium">
               Power BI & MySQL Workbench Schema Designer • Inspect Cardinalities (1:1, 1:M, M:1, M:M)
@@ -376,30 +382,6 @@ export const EerModelStudioView: React.FC = () => {
 
         {/* Action Controls */}
         <div className="flex items-center gap-3">
-          {/* Scope Selector: Current vs All */}
-          <div className="flex items-center bg-[#091633] p-1 rounded-xl border border-slate-800 text-xs">
-            <button
-              onClick={() => setScope('current')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-                scope === 'current'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Current Dataset ({graphData?.total_tables ?? 0})
-            </button>
-            <button
-              onClick={() => setScope('all')}
-              className={`px-3 py-1.5 rounded-lg font-semibold transition ${
-                scope === 'all'
-                  ? 'bg-indigo-600 text-white shadow-sm'
-                  : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              Enterprise Multi-Dataset Graph
-            </button>
-          </div>
-
           {/* Search Box */}
           <div className="relative hidden md:block">
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
@@ -449,8 +431,8 @@ export const EerModelStudioView: React.FC = () => {
         </div>
       </div>
 
-      {/* 2. Main E-ER Workspace Split View */}
-      <div className="flex-1 flex overflow-hidden relative">
+      {/* 2. Main E-ER Workspace Split View in 3D */}
+      <div className="flex-1 flex overflow-hidden relative perspective-1000">
         {/* Canvas Board (Drag & Pan Area) */}
         <div
           id="canvas-board"
@@ -464,39 +446,54 @@ export const EerModelStudioView: React.FC = () => {
           onTouchMove={handleTouchMoveCanvas}
           onTouchEnd={handleTouchEndCanvas}
           onTouchCancel={handleTouchEndCanvas}
-          className="flex-1 relative overflow-hidden bg-[#050B18] cursor-grab active:cursor-grabbing"
+          className="flex-1 relative overflow-hidden bg-[#050B18] cursor-grab active:cursor-grabbing preserve-3d"
           style={{
-            backgroundImage: `radial-gradient(#1E293B 1px, transparent 1px)`,
-            backgroundSize: `${30 * zoom}px ${30 * zoom}px`
+            backgroundImage: `radial-gradient(rgba(99, 102, 241, 0.15) 1.5px, transparent 1.5px), radial-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px)`,
+            backgroundSize: `${36 * zoom}px ${36 * zoom}px, ${18 * zoom}px ${18 * zoom}px`,
+            backgroundPosition: `0 0, ${9 * zoom}px ${9 * zoom}px`
           }}
         >
           {isLoading ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 z-30">
-              <div className="w-10 h-10 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-xs text-slate-400 font-mono">Loading E-ER schema entities and foreign keys...</p>
+              <div className="w-12 h-12 border-3 border-cyan-400 border-t-transparent rounded-full animate-spin shadow-[0_0_20px_rgba(6,182,212,0.5)]" />
+              <p className="text-xs text-cyan-300 font-mono tracking-wider font-semibold">Loading E-ER schema entities and foreign keys...</p>
             </div>
           ) : !graphData || graphData.tables.length === 0 ? (
             <div className="absolute inset-0 flex flex-col items-center justify-center space-y-3 p-8 text-center">
-              <Database className="w-12 h-12 text-slate-600 mx-auto" />
+              <div className="w-16 h-16 rounded-2xl bg-slate-900/90 border border-slate-800 flex items-center justify-center shadow-2xl">
+                <Database className="w-8 h-8 text-slate-500" />
+              </div>
               <h3 className="text-base font-bold text-white">No Relational Tables Found</h3>
               <p className="text-xs text-slate-400 max-w-sm">
-                Upload or select a dataset containing tables to view its interactive E-ER schema diagram.
+                Upload or select a dataset containing tables to view its interactive 3D E-ER schema diagram.
               </p>
             </div>
           ) : (
             <div
-              className="absolute inset-0 origin-top-left transition-transform duration-75"
+              className="absolute inset-0 origin-top-left transition-transform duration-75 preserve-3d"
               style={{
                 transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`
               }}
             >
-              {/* SVG Relationships Layer (Power BI / MySQL style connector wires) */}
-              <svg className="absolute inset-0 w-[5000px] h-[5000px] pointer-events-none z-0">
+              {/* SVG Relationships Layer (Power BI / MySQL style 3D connector wires) */}
+              <svg className="absolute inset-0 w-[6000px] h-[6000px] pointer-events-none z-0">
                 <defs>
-                  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="3" result="glow" />
-                    <feComposite in="SourceGraphic" in2="glow" operator="over" />
+                  <filter id="glow3d" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="4" result="blur" />
+                    <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 2 0" />
+                    <feMerge>
+                      <feMergeNode in="blur" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
                   </filter>
+                  <linearGradient id="wireGradCyan" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#06B6D4" />
+                    <stop offset="100%" stopColor="#3B82F6" />
+                  </linearGradient>
+                  <linearGradient id="wireGradPurple" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stopColor="#6366F1" />
+                    <stop offset="100%" stopColor="#A855F7" />
+                  </linearGradient>
                 </defs>
 
                 {graphData.relationships.map((rel) => {
@@ -507,9 +504,9 @@ export const EerModelStudioView: React.FC = () => {
                   const isSelected = selectedRel?.id === rel.id;
 
                   // Find column offsets inside cards
-                  const cardWidth = 300;
-                  const headerHeight = 70;
-                  const rowHeight = 28;
+                  const cardWidth = 320;
+                  const headerHeight = 72;
+                  const rowHeight = 32;
 
                   const srcTblObj = graphData.tables.find((t) => t.table_name === rel.source_table);
                   const tgtTblObj = graphData.tables.find((t) => t.table_name === rel.target_table);
@@ -520,10 +517,10 @@ export const EerModelStudioView: React.FC = () => {
                   // Determine source and target connector anchor points
                   const isLeftToRight = srcPos.x < tgtPos.x;
                   const x1 = isLeftToRight ? srcPos.x + cardWidth : srcPos.x;
-                  const y1 = srcPos.y + headerHeight + srcColIdx * rowHeight + 14;
+                  const y1 = srcPos.y + headerHeight + srcColIdx * rowHeight + 16;
 
                   const x2 = isLeftToRight ? tgtPos.x : tgtPos.x + cardWidth;
-                  const y2 = tgtPos.y + headerHeight + tgtColIdx * rowHeight + 14;
+                  const y2 = tgtPos.y + headerHeight + tgtColIdx * rowHeight + 16;
 
                   // Bézier curve control points
                   const deltaX = Math.abs(x2 - x1) * 0.55;
@@ -542,42 +539,52 @@ export const EerModelStudioView: React.FC = () => {
                   return (
                     <g key={rel.id} className="pointer-events-auto cursor-pointer" onClick={() => setSelectedRel(rel)}>
                       {/* Invisible wider hit area for easy clicking */}
-                      <path d={pathData} fill="none" stroke="transparent" strokeWidth="18" />
+                      <path d={pathData} fill="none" stroke="transparent" strokeWidth="22" />
 
-                      {/* Ambient Glow path when selected */}
+                      {/* 3D Ambient Glow path when selected */}
                       {isSelected && (
                         <path
                           d={pathData}
                           fill="none"
                           stroke={strokeColor}
-                          strokeWidth="6"
-                          opacity="0.5"
-                          filter="url(#glow)"
+                          strokeWidth="8"
+                          opacity="0.6"
+                          filter="url(#glow3d)"
                         />
                       )}
 
-                      {/* Primary Wire */}
+                      {/* Shadow wire for 3D depth */}
+                      <path
+                        d={pathData}
+                        fill="none"
+                        stroke="rgba(0, 0, 0, 0.6)"
+                        strokeWidth={isSelected ? '6' : '4'}
+                        transform="translate(0, 4)"
+                      />
+
+                      {/* Primary 3D Wire */}
                       <path
                         d={pathData}
                         fill="none"
                         stroke={strokeColor}
-                        strokeWidth={isSelected ? '3' : '2'}
-                        strokeDasharray={rel.status === 'detected' ? 'none' : '4 2'}
+                        strokeWidth={isSelected ? '3.5' : '2.5'}
+                        strokeDasharray={rel.status === 'detected' ? 'none' : '5 3'}
                         className="transition-all"
+                        filter={isSelected ? 'url(#glow3d)' : undefined}
                       />
 
-                      {/* Source Terminal Anchor (1 or Many) */}
-                      <circle cx={x1} cy={y1} r="4" fill={strokeColor} />
-                      {/* Target Terminal Anchor */}
-                      <circle cx={x2} cy={y2} r="4" fill={strokeColor} />
+                      {/* Source Terminal 3D Anchor */}
+                      <circle cx={x1} cy={y1} r="5" fill={strokeColor} stroke="#071126" strokeWidth="2" />
+                      {/* Target Terminal 3D Anchor */}
+                      <circle cx={x2} cy={y2} r="5" fill={strokeColor} stroke="#071126" strokeWidth="2" />
 
-                      {/* Interactive Center Cardinality Badge */}
-                      <foreignObject x={midX - 24} y={midY - 14} width="48" height="28">
+                      {/* Interactive 3D Center Cardinality Badge */}
+                      <foreignObject x={midX - 26} y={midY - 15} width="52" height="30">
                         <div
-                          className={`w-full h-full rounded-lg flex items-center justify-center text-[10px] font-black font-mono shadow-lg border transition cursor-pointer ${
+                          className={`w-full h-full rounded-xl flex items-center justify-center text-[10px] font-black font-mono transition-all cursor-pointer select-none shadow-2xl border ${
                             isSelected
-                              ? 'bg-indigo-600 text-white border-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.6)] scale-110'
-                              : 'bg-[#0B1528] text-slate-200 border-slate-700 hover:border-slate-500'
+                              ? 'bg-gradient-to-r from-indigo-600 to-cyan-500 text-white border-cyan-300 shadow-[0_0_18px_rgba(6,182,212,0.8),inset_0_1px_1px_rgba(255,255,255,0.4)] scale-110'
+                              : 'bg-slate-900/95 text-slate-200 border-slate-700/80 hover:border-cyan-400 hover:text-white shadow-[0_6px_15px_rgba(0,0,0,0.8),inset_0_1px_1px_rgba(255,255,255,0.15)] hover:scale-105'
                           }`}
                         >
                           {rel.cardinality_label}
@@ -588,50 +595,53 @@ export const EerModelStudioView: React.FC = () => {
                 })}
               </svg>
 
-              {/* Table Schema Cards Layer */}
+              {/* Table Schema Cards Layer in 3D */}
               {filteredTables.map((tbl) => {
                 const pos = positions[tbl.table_name] || { x: 40, y: 40 };
                 const isSelected = selectedTable === tbl.table_name;
                 const isRelSource = selectedRel?.source_table === tbl.table_name;
                 const isRelTarget = selectedRel?.target_table === tbl.table_name;
+                const isHighlighted = isSelected || isRelSource || isRelTarget;
 
                 return (
                   <div
                     key={tbl.table_name}
                     style={{
-                      transform: `translate(${pos.x}px, ${pos.y}px)`,
-                      width: '300px'
+                      transform: `translate3d(${pos.x}px, ${pos.y}px, 0)`,
+                      width: '320px'
                     }}
                     onClick={() => setSelectedTable(tbl.table_name)}
-                    className={`absolute rounded-2xl overflow-hidden glass-3d-card border transition-shadow select-none shadow-2xl ${
-                      isSelected || isRelSource || isRelTarget
-                        ? 'border-cyan-400/80 shadow-[0_0_30px_rgba(6,182,212,0.25)] ring-1 ring-cyan-400/40'
-                        : 'border-slate-800 hover:border-slate-700'
+                    className={`absolute rounded-2xl overflow-hidden glass-3d-card transition-all duration-200 select-none ${
+                      isHighlighted
+                        ? 'border-2 border-cyan-400/90 shadow-[0_25px_65px_-10px_rgba(0,0,0,0.95),0_0_35px_rgba(6,182,212,0.35),inset_0_1px_2px_rgba(255,255,255,0.3)] ring-2 ring-cyan-400/40 -translate-y-1 z-10'
+                        : 'border border-slate-700/80 hover:border-slate-600 shadow-[0_18px_45px_-10px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.12)] hover:-translate-y-0.5'
                     }`}
                   >
-                    {/* Draggable Card Header */}
+                    {/* Draggable Card Header in 3D */}
                     <div
                       onMouseDown={(e) => handleStartDragTable(tbl.table_name, e)}
                       onTouchStart={(e) => handleStartDragTable(tbl.table_name, e)}
-                      className={`px-4 py-3 cursor-move border-b flex items-center justify-between transition ${
+                      className={`px-4 py-3 cursor-move border-b flex items-center justify-between transition-all ${
                         isRelSource
-                          ? 'bg-gradient-to-r from-cyan-950/80 to-blue-950/80 border-cyan-500/40'
+                          ? 'bg-gradient-to-r from-cyan-950/90 via-slate-900 to-blue-950/90 border-cyan-500/50 shadow-inner'
                           : isRelTarget
-                          ? 'bg-gradient-to-r from-purple-950/80 to-indigo-950/80 border-purple-500/40'
-                          : 'bg-[#0A1633] border-slate-800 hover:bg-[#0E1E42]'
+                          ? 'bg-gradient-to-r from-purple-950/90 via-slate-900 to-indigo-950/90 border-purple-500/50 shadow-inner'
+                          : 'bg-gradient-to-r from-slate-900/95 via-[#0A1633] to-slate-900/95 border-slate-800 hover:bg-[#0E1E42]'
                       }`}
                     >
-                      <div className="flex items-center gap-2 truncate">
-                        <Table className="w-4 h-4 text-cyan-400 shrink-0" />
-                        <span className="font-bold text-xs text-white truncate font-mono">{tbl.table_name}</span>
+                      <div className="flex items-center gap-2.5 truncate">
+                        <div className={`p-1.5 rounded-lg ${isHighlighted ? 'bg-cyan-500/20 text-cyan-300' : 'bg-slate-800 text-slate-400'}`}>
+                          <Table className="w-4 h-4" />
+                        </div>
+                        <span className="font-bold text-xs text-white truncate font-mono tracking-wide">{tbl.table_name}</span>
                       </div>
-                      <span className="text-[10px] font-mono text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded border border-slate-800">
+                      <span className="text-[10px] font-mono text-cyan-300 bg-slate-950/80 px-2 py-0.5 rounded-md border border-slate-800 shrink-0 font-semibold shadow-inner">
                         {tbl.row_count.toLocaleString()} rows
                       </span>
                     </div>
 
-                    {/* Columns List (Schema Attributes) */}
-                    <div className="max-h-72 overflow-y-auto bg-[#070F22]/90 divide-y divide-slate-900/60">
+                    {/* Columns List (Schema Attributes) in 3D */}
+                    <div className="max-h-72 overflow-y-auto bg-slate-950/85 divide-y divide-slate-900/70 custom-scrollbar">
                       {tbl.columns.map((col) => {
                         const isConnectedSource =
                           selectedRel?.source_table === tbl.table_name && selectedRel?.source_column === col.column_name;
@@ -642,29 +652,29 @@ export const EerModelStudioView: React.FC = () => {
                         return (
                           <div
                             key={col.column_name}
-                            className={`px-3.5 py-1.5 flex items-center justify-between text-xs transition ${
+                            className={`px-3.5 py-2 flex items-center justify-between text-xs transition ${
                               isConnectedKey
-                                ? 'bg-indigo-500/25 text-cyan-200 font-semibold'
-                                : 'hover:bg-slate-800/40 text-slate-300'
+                                ? 'bg-indigo-600/30 text-cyan-200 font-bold border-l-2 border-cyan-400 shadow-inner'
+                                : 'hover:bg-slate-800/50 text-slate-300 hover:text-white'
                             }`}
                           >
                             <div className="flex items-center gap-2 truncate">
                               {getColIcon(col)}
-                              <span className="truncate font-mono text-[11px]">{col.column_name}</span>
+                              <span className="truncate font-mono text-[11px] font-medium">{col.column_name}</span>
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0">
                               {col.is_primary_key && (
-                                <span className="text-[9px] font-mono px-1 py-0.2 bg-amber-500/20 text-amber-300 rounded font-bold">
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/40 rounded-md font-extrabold shadow-sm">
                                   PK
                                 </span>
                               )}
                               {col.is_foreign_key && (
-                                <span className="text-[9px] font-mono px-1 py-0.2 bg-purple-500/20 text-purple-300 rounded font-bold">
+                                <span className="text-[9px] font-mono px-1.5 py-0.5 bg-purple-500/20 text-purple-300 border border-purple-500/40 rounded-md font-extrabold shadow-sm">
                                   FK
                                 </span>
                               )}
-                              <span className="text-[10px] font-mono text-slate-500">{col.data_type}</span>
+                              <span className="text-[10px] font-mono text-slate-400">{col.data_type}</span>
                             </div>
                           </div>
                         );
@@ -672,9 +682,9 @@ export const EerModelStudioView: React.FC = () => {
                     </div>
 
                     {/* Footer Domain & Column count */}
-                    <div className="px-3.5 py-2 bg-[#050C1B] border-t border-slate-900 flex items-center justify-between text-[10px] text-slate-500 font-mono">
+                    <div className="px-3.5 py-2.5 bg-slate-950 border-t border-slate-900 flex items-center justify-between text-[10px] text-slate-400 font-mono">
                       <span>Domain: {tbl.detected_domain}</span>
-                      <span>{tbl.columns.length} columns</span>
+                      <span className="text-slate-500">{tbl.columns.length} columns</span>
                     </div>
                   </div>
                 );
@@ -683,90 +693,90 @@ export const EerModelStudioView: React.FC = () => {
           )}
         </div>
 
-        {/* 3. Right Inspection HUD & Cardinality Explainer Drawer */}
+        {/* 3. Right Inspection HUD & Cardinality Explainer Drawer in 3D */}
         <div className="w-96 border-l border-slate-800 bg-[#071126]/95 backdrop-blur-2xl flex flex-col h-full overflow-y-auto shrink-0 z-10 shadow-2xl p-5 space-y-5">
           {selectedRel ? (
             <>
               {/* Relationship Header */}
-              <div className="space-y-2 pb-4 border-b border-slate-800">
+              <div className="space-y-2.5 pb-4 border-b border-slate-800">
                 <div className="flex items-center justify-between">
-                  <span className="badge-neon-purple text-[10px] font-mono uppercase px-2 py-0.5 rounded font-extrabold">
+                  <span className="badge-neon-purple text-[10px] font-mono uppercase px-2.5 py-0.5 rounded-full font-extrabold">
                     Cardinality Inspection
                   </span>
-                  <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/50 px-2 py-0.5 rounded border border-cyan-500/30">
+                  <span className="text-xs font-mono font-bold text-cyan-400 bg-cyan-950/60 px-2.5 py-0.5 rounded-full border border-cyan-500/40 shadow-sm">
                     {selectedRel.cardinality_label}
                   </span>
                 </div>
 
                 <div className="text-sm font-bold text-white flex items-center gap-2 truncate">
-                  <span className="text-cyan-400 truncate">{selectedRel.source_table}</span>
+                  <span className="text-cyan-400 truncate font-mono">{selectedRel.source_table}</span>
                   <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                  <span className="text-purple-400 truncate">{selectedRel.target_table}</span>
+                  <span className="text-purple-400 truncate font-mono">{selectedRel.target_table}</span>
                 </div>
 
-                <div className="p-2.5 rounded-xl bg-[#0B1733] border border-slate-800 text-xs font-mono text-slate-300 flex items-center justify-between">
-                  <span>Key: <strong className="text-cyan-300">{selectedRel.source_column}</strong></span>
-                  <span className="text-slate-500">=</span>
-                  <span>Key: <strong className="text-purple-300">{selectedRel.target_column}</strong></span>
+                <div className="p-3 rounded-xl bg-slate-950/80 border border-slate-800 text-xs font-mono text-slate-300 flex items-center justify-between shadow-inner">
+                  <span>PK: <strong className="text-cyan-300">{selectedRel.source_column}</strong></span>
+                  <span className="text-slate-500">&harr;</span>
+                  <span>FK: <strong className="text-purple-300">{selectedRel.target_column}</strong></span>
                 </div>
               </div>
 
-              {/* Educational Cardinality Breakdown HUD */}
+              {/* Educational Cardinality Breakdown HUD in 3D */}
               <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 font-mono flex items-center gap-1.5">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300 font-mono flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
                   What is a {selectedRel.cardinality_label} Relationship?
                 </h4>
 
-                <div className="p-3.5 rounded-xl bg-slate-900/80 border border-slate-800 space-y-2 text-xs">
+                <div className="p-4 rounded-2xl glass-3d-card border border-slate-800/90 space-y-2.5 text-xs shadow-xl">
                   {selectedRel.cardinality_label === '1:1' && (
                     <>
-                      <div className="text-cyan-300 font-bold">One-to-One (1:1) Parity</div>
+                      <div className="text-cyan-300 font-bold text-sm">One-to-One (1:1) Parity</div>
                       <p className="text-slate-300 leading-relaxed text-[11px]">
                         Each entity in Table A maps to exactly one record in Table B. Merging these tables augments
                         attributes horizontally with <strong>zero row duplication</strong>.
                       </p>
-                      <div className="text-[10px] text-slate-400 font-mono">Example: User ↔ User Profile</div>
+                      <div className="text-[10px] text-slate-400 font-mono">Example: User &harr; User Profile</div>
                     </>
                   )}
 
                   {selectedRel.cardinality_label === '1:M' && (
                     <>
-                      <div className="text-emerald-300 font-bold">One-to-Many (1:M) Master-Detail</div>
+                      <div className="text-emerald-300 font-bold text-sm">One-to-Many (1:M) Master-Detail</div>
                       <p className="text-slate-300 leading-relaxed text-[11px]">
                         A single parent row replicates for each matching child transaction. Parent attributes are preserved
                         alongside each detail record.
                       </p>
-                      <div className="text-[10px] text-slate-400 font-mono">Example: Customer ↔ Orders</div>
+                      <div className="text-[10px] text-slate-400 font-mono">Example: Customer &harr; Orders</div>
                     </>
                   )}
 
                   {selectedRel.cardinality_label === 'M:1' && (
                     <>
-                      <div className="text-indigo-300 font-bold">Many-to-One (M:1) Lookup Dimension</div>
+                      <div className="text-indigo-300 font-bold text-sm">Many-to-One (M:1) Lookup Dimension</div>
                       <p className="text-slate-300 leading-relaxed text-[11px]">
                         Multiple transaction rows reference a single lookup dimension. The base grain of Table A is
                         preserved with enriched dimension attributes.
                       </p>
-                      <div className="text-[10px] text-slate-400 font-mono">Example: Order Lines ↔ Product Catalog</div>
+                      <div className="text-[10px] text-slate-400 font-mono">Example: Order Lines &harr; Product Catalog</div>
                     </>
                   )}
 
                   {selectedRel.cardinality_label === 'M:M' && (
                     <>
-                      <div className="text-pink-300 font-bold">Many-to-Many (M:M) Cross-Link</div>
+                      <div className="text-pink-300 font-bold text-sm">Many-to-Many (M:M) Cross-Link</div>
                       <p className="text-slate-300 leading-relaxed text-[11px]">
                         Entities on both sides can have multiple matches. Direct joins risk <strong>Cartesian explosion</strong>.
                         Decomposed via bridge junction tables in enterprise models.
                       </p>
-                      <div className="text-[10px] text-slate-400 font-mono">Example: Students ↔ Courses</div>
+                      <div className="text-[10px] text-slate-400 font-mono">Example: Students &harr; Courses</div>
                     </>
                   )}
                 </div>
 
                 {selectedRel.reasoning && (
-                  <p className="text-[11px] text-slate-400 italic bg-[#081226] p-2.5 rounded-xl border border-slate-800">
-                    "{selectedRel.reasoning}"
+                  <p className="text-[11px] text-slate-400 italic bg-slate-950/80 p-3 rounded-xl border border-slate-800/80 leading-relaxed shadow-inner">
+                    &ldquo;{selectedRel.reasoning}&rdquo;
                   </p>
                 )}
               </div>
@@ -776,7 +786,7 @@ export const EerModelStudioView: React.FC = () => {
                 <button
                   onClick={() => runSimulation(selectedRel)}
                   disabled={isSimulating}
-                  className="w-full py-3 px-4 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:to-purple-500 text-white font-bold text-xs shadow-[0_0_20px_rgba(6,182,212,0.4)] border border-cyan-400/50 transition flex items-center justify-center gap-2 hover:scale-[1.02] disabled:opacity-50"
+                  className="w-full btn-3d-cyan py-3 px-4 rounded-xl text-white font-bold text-xs shadow-lg transition flex items-center justify-center gap-2 hover:scale-[1.02] disabled:opacity-50"
                 >
                   {isSimulating ? (
                     <>
@@ -785,8 +795,8 @@ export const EerModelStudioView: React.FC = () => {
                     </>
                   ) : (
                     <>
-                      <Eye className="w-4 h-4" />
-                      <span>Simulate & Preview Applied Dataset</span>
+                      <Play className="w-4 h-4 fill-white" />
+                      <span>Simulate Live Join Output</span>
                     </>
                   )}
                 </button>

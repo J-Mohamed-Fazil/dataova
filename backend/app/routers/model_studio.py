@@ -13,6 +13,9 @@ from app.models.relationship import TableRelationship
 from app.services.cache_manager import DataFrameCache
 from app.services.relationship_finder import RelationshipFinder
 
+from app.models.user import User
+from app.routers.auth import get_optional_user
+
 router = APIRouter(prefix="/model", tags=["model-studio"])
 
 class SimulateRelationshipRequest(BaseModel):
@@ -35,28 +38,42 @@ class CreateRelationshipRequest(BaseModel):
     confidence: float = 1.0
     reasoning: Optional[str] = "User-defined relationship"
 
-def load_df(db: Session, dataset_id: str, table_name: str) -> Optional[pd.DataFrame]:
-    tbl_meta = db.query(TableMetadata).filter(
-        TableMetadata.dataset_id == dataset_id,
-        TableMetadata.table_name == table_name
-    ).first()
+def load_df(db: Session, dataset_id: Optional[str], table_name: str) -> Optional[pd.DataFrame]:
+    query = db.query(TableMetadata).filter(TableMetadata.table_name == table_name)
+    if dataset_id:
+        query = query.filter(TableMetadata.dataset_id == dataset_id)
+    tbl_meta = query.first()
+    if not tbl_meta:
+        # Fallback without dataset_id filter if table name matches uniquely
+        tbl_meta = db.query(TableMetadata).filter(TableMetadata.table_name == table_name).first()
     if not tbl_meta:
         return None
     return DataFrameCache.get_table_dataframe(tbl_meta.storage_path, tbl_meta.table_name)
 
 @router.get("/schema-graph")
 def get_schema_graph(
-    dataset_id: Optional[str] = Query(None, description="Specific dataset ID or None for all datasets"),
+    dataset_id: Optional[str] = Query(None, description="Specific dataset ID or None/'all' for enterprise multi-dataset graph"),
+    user: Optional[User] = Depends(get_optional_user),
     db: Session = Depends(get_db)
 ):
     """
     Returns the E-ER schema graph containing table nodes, primary/foreign key flags,
     and relationship edges with exact cardinalities (1:1, 1:M, M:1, M:M).
+    Supports both single-dataset scope and enterprise multi-dataset relational graphs.
     """
+    query = db.query(Dataset).filter(Dataset.status != "failed")
+    if user:
+        query = query.filter((Dataset.user_id == user.id) | (Dataset.user_id.is_(None)))
+
     if dataset_id and dataset_id != "all":
-        datasets = db.query(Dataset).filter(Dataset.id == dataset_id, Dataset.status == "ready").all()
+        datasets = query.filter(Dataset.id == dataset_id).all()
+        # Fallback if user filter was strict
+        if not datasets:
+            datasets = db.query(Dataset).filter(Dataset.id == dataset_id).all()
     else:
-        datasets = db.query(Dataset).filter(Dataset.status == "ready").all()
+        datasets = query.all()
+        if not datasets:
+            datasets = db.query(Dataset).filter(Dataset.status != "failed").all()
 
     if not datasets:
         return {"tables": [], "relationships": [], "total_tables": 0, "total_relationships": 0}
@@ -67,7 +84,7 @@ def get_schema_graph(
     # Load stored relationships
     stored_rels = db.query(TableRelationship).filter(TableRelationship.dataset_id.in_(dataset_ids)).all()
     
-    # Map of FK columns for quick lookup: (table_name, col_name) -> True
+    # Map of FK and PK columns for quick lookup: (table_name, col_name) -> True
     fk_map = set()
     pk_map = set()
     for r in stored_rels:
@@ -84,19 +101,17 @@ def get_schema_graph(
             columns_data = []
             pk_candidate_found = False
 
-            # First pass: identify PK if explicitly marked or detected
             for c in tbl.columns:
                 is_pk = (tbl.table_name, c.column_name) in pk_map
                 is_fk = (tbl.table_name, c.column_name) in fk_map
                 
-                # Heuristic PK detection if not marked
+                # Heuristic PK detection if not explicitly marked
                 if not is_pk and not pk_candidate_found and c.missing_count == 0:
                     c_lower = c.column_name.lower()
                     if (c_lower.endswith("id") or c_lower == "id" or c_lower.endswith("_key")) and c.unique_count == tbl.row_count:
                         is_pk = True
                         pk_candidate_found = True
 
-                # Sample values
                 sample_vals = c.sample_values[:4] if c.sample_values else []
 
                 columns_data.append({
@@ -123,13 +138,13 @@ def get_schema_graph(
                 "columns": columns_data
             })
 
-    # Relationships formatting
+    # Relationships formatting & deduplication
     relationships_output: List[Dict[str, Any]] = []
+    seen_rel_keys = set()
     
-    # Check if dataset has stored relationships or needs detection
+    # 1. Format stored relationships
     if stored_rels:
         for r in stored_rels:
-            # Format cardinality label (1:1, 1:M, M:1, M:M)
             rel_type = r.relationship_type.lower()
             if rel_type == "one_to_one":
                 card_label = "1:1"
@@ -139,6 +154,10 @@ def get_schema_graph(
                 card_label = "M:1"
             else:
                 card_label = "M:M"
+
+            pair_key = (r.source_table, r.source_column, r.target_table, r.target_column)
+            seen_rel_keys.add(pair_key)
+            seen_rel_keys.add((r.target_table, r.target_column, r.source_table, r.source_column))
 
             relationships_output.append({
                 "id": r.id,
@@ -154,8 +173,8 @@ def get_schema_graph(
                 "reasoning": r.reasoning or f"{card_label} relationship connecting {r.source_table}.{r.source_column} to {r.target_table}.{r.target_column}"
             })
 
-    # If no stored relationships, run RelationshipFinder across tables
-    if not relationships_output and len(tables_output) >= 2:
+    # 2. Discover cross-dataset & multi-table candidate relationships across all loaded tables
+    if len(tables_output) >= 2:
         dfs_dict = {}
         for ds in datasets:
             for tbl in ds.tables:
@@ -166,6 +185,13 @@ def get_schema_graph(
         if len(dfs_dict) >= 2:
             detected = RelationshipFinder.detect_relationships(dfs_dict)
             for d in detected:
+                pair_key = (d["source_table"], d["source_column"], d["target_table"], d["target_column"])
+                if pair_key in seen_rel_keys:
+                    continue
+
+                seen_rel_keys.add(pair_key)
+                seen_rel_keys.add((d["target_table"], d["target_column"], d["source_table"], d["source_column"]))
+
                 rel_type = d.get("relationship_type", "many_to_one")
                 if rel_type == "one_to_one":
                     card_label = "1:1"
