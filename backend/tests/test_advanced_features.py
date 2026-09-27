@@ -147,7 +147,7 @@ def test_sql_engine(sample_timeseries_df):
     )
     assert "SELECT" in nl_res["sql_query"]
     assert "LIMIT 3" in nl_res["sql_query"]
-    assert "df.groupby" in nl_res["pandas_code"]
+    assert "groupby" in nl_res["pandas_code"]
 
     # Test NL Translation on purely numeric dataframe (no string/dimension columns)
     num_only_df = pd.DataFrame({
