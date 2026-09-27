@@ -628,73 +628,89 @@ class ReportService:
         anomaly_chart = cls._generate_anomaly_dashboard_chart(anomalies)
 
         # -------------------------------------------------------------
-        # 1. Executive Intelligence Synthesis (Domain-Adapted)
+        # 1. Executive Summary (Domain-Adapted & Plain Language)
         # -------------------------------------------------------------
         kpi_bullets = ", ".join(f"{k['display_name']}: **{k['formatted_value']}**" for k in kpis[:4])
         
         domain_narratives = {
             "Retail & E-Commerce": (
-                f"This commercial intelligence report presents an in-depth operational evaluation of '{dataset_name}'. "
-                f"Consolidating transactional commerce across {len(dataframes)} table(s) and {total_records:,} observed records, "
-                f"the dataset demonstrates strong commercial velocity with primary indicators: {kpi_bullets}. "
-                f"Overall data integrity registers at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
-                f"providing verified fidelity for SKU merchandising, pricing elasticity, and customer demand optimization."
+                f"This executive report provides a comprehensive operational evaluation of commercial performance for '{dataset_name}'. "
+                f"Drawing from {len(dataframes)} connected data table(s) and {total_records:,} observed customer transactions, "
+                f"the business displays steady sales velocity and strong commercial engagement. "
+                f"Primary performance benchmarks reflect robust operational volume, led by {kpi_bullets}.\n\n"
+                f"Overall data integrity is rated at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
+                f"confirming that records are well-structured, complete, and dependable for ongoing business planning. "
+                f"This verified baseline provides commercial leadership with actionable clarity for inventory allocation, "
+                f"merchandising strategy, pricing adjustments, and customer demand forecasting."
             ),
             "Human Resources": (
-                f"This workforce intelligence dossier analyzes organizational human capital data from '{dataset_name}'. "
-                f"Spanning {total_records:,} personnel records across {len(dataframes)} structural file(s), "
-                f"the analytical synthesis evaluates compensation parity, departmental headcount, and retention stability. "
-                f"Core workforce indicators: {kpi_bullets}. "
+                f"This workforce intelligence report presents a thorough review of organizational staffing and talent data for '{dataset_name}'. "
+                f"Evaluating {total_records:,} personnel records across {len(dataframes)} structural sheet(s), the assessment examines "
+                f"departmental headcount distribution, compensation parity, and overall retention stability. "
+                f"Core workforce indicators establish a clear baseline, highlighted by {kpi_bullets}.\n\n"
                 f"Data hygiene registers at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
-                f"establishing a robust evidence base for succession planning and talent retention."
+                f"demonstrating verified consistency across employee records with minimal missing fields. "
+                f"This reliable evidence base gives leadership the necessary visibility to evaluate team capacity, "
+                f"address resource allocation imbalances, and implement data-informed talent retention and succession plans."
             ),
             "Banking & Finance": (
-                f"This financial position and ledger audit examines transactional records within '{dataset_name}'. "
-                f"Evaluating {total_records:,} monetary movements across {len(dataframes)} ledger table(s), "
-                f"the assessment captures liquidity, payment channel distribution, and transaction concentration. "
-                f"Primary capital indicators: {kpi_bullets}. "
-                f"Ledger audit integrity registers at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
-                f"providing rigorous auditability for risk mitigation and capital allocation."
+                f"This financial position and ledger audit provides a clear, structured analysis of transactional activity within '{dataset_name}'. "
+                f"Reviewing {total_records:,} monetary records across {len(dataframes)} ledger table(s), the assessment captures "
+                f"channel distribution, cash flow velocity, payment methods, and account balance concentration. "
+                f"Primary financial indicators demonstrate active capital throughput: {kpi_bullets}.\n\n"
+                f"Audit integrity is rated at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
+                f"confirming reliable reconciliations with thorough ledger documentation. "
+                f"These dependable figures provide management with verified clarity for budget tracking, "
+                f"liquidity management, financial risk controls, and capital resource planning."
             ),
             "Healthcare & Clinical": (
-                f"This clinical cohort evaluation assesses diagnostic, patient, and treatment records from '{dataset_name}'. "
-                f"Covering {total_records:,} clinical observations across {len(dataframes)} table(s), "
-                f"the report models patient admission velocity, treatment variations, and diagnostic distributions. "
-                f"Core health metrics: {kpi_bullets}. "
-                f"Clinical data completeness score is **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
-                f"safeguarding protocol compliance and patient care consistency."
+                f"This clinical performance report provides an organized, detailed evaluation of patient care and treatment records in '{dataset_name}'. "
+                f"Covering {total_records:,} clinical observations across {len(dataframes)} table(s), the analysis examines "
+                f"patient admission volume, treatment category distributions, diagnostic patterns, and care outcomes. "
+                f"Core healthcare indicators reflect consistent clinical activity: {kpi_bullets}.\n\n"
+                f"Clinical data completeness registers at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
+                f"validating high record hygiene and reliable documentation across patient records. "
+                f"This solid data foundation supports clinical administrators in monitoring protocol compliance, "
+                f"optimizing facility resource allocation, and maintaining high standards of consistent patient care."
             ),
             "Logistics & Supply Chain": (
-                f"This supply chain operations briefing examines inventory movement and shipping throughput in '{dataset_name}'. "
-                f"Tracking {total_records:,} fulfillment events across {len(dataframes)} operational source(s), "
-                f"the evaluation identifies route transit times, carrier allocations, and warehouse lead times. "
-                f"Key throughput indicators: {kpi_bullets}. "
-                f"Operational tracking score is **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
-                f"enabling resilient supply chain orchestration."
+                f"This supply chain operations briefing delivers an in-depth review of inventory movement, fulfillment, and shipping throughput in '{dataset_name}'. "
+                f"Tracking {total_records:,} delivery and warehouse events across {len(dataframes)} operational source(s), the evaluation identifies "
+                f"carrier distribution, route transit times, shipment statuses, and fulfillment lead times. "
+                f"Primary throughput benchmarks demonstrate active operational flow: {kpi_bullets}.\n\n"
+                f"Operational tracking data health is rated at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
+                f"confirming strong record completeness across shipment stages. "
+                f"This verified operational visibility enables logistics managers to proactively resolve transit bottlenecks, "
+                f"balance warehouse capacity, and improve delivery reliability."
             ),
             "SaaS & Digital Product": (
-                f"This digital product and recurring revenue briefing synthesizes lifecycle metrics from '{dataset_name}'. "
-                f"Tracking {total_records:,} account and subscription signals across {len(dataframes)} table(s), "
-                f"the evaluation models subscription velocity, tier distribution, and engagement cohorts. "
-                f"Core product indicators: {kpi_bullets}. "
-                f"Telemetry integrity score is **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
-                f"supporting net retention and lifetime value growth."
+                f"This product performance report synthesizes account engagement, subscription tiers, and recurring activity within '{dataset_name}'. "
+                f"Analyzing {total_records:,} user and account events across {len(dataframes)} table(s), the assessment highlights "
+                f"plan distributions, customer lifecycle milestones, retention patterns, and product utilization trends. "
+                f"Core product metrics confirm healthy recurring engagement: {kpi_bullets}.\n\n"
+                f"Telemetry integrity registers at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
+                f"demonstrating high tracking accuracy and consistent event logging. "
+                f"These dependable insights provide product leadership with clear guidance for reducing churn, "
+                f"refining subscription packaging, and accelerating user lifecycle value."
             )
         }
 
         default_exec_narrative = (
-            f"This executive intelligence report delivers an automated analytical evaluation of '{dataset_name}'. "
-            f"Synthesizing {total_records:,} records across {len(dataframes)} relational table(s) in the {domain} domain, "
-            f"the analysis captures macro operational performance including: {kpi_bullets}. "
-            f"Overall data integrity registers at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
-            f"establishing a validated foundation for data-informed decision making."
+            f"This executive business report delivers a clear, detailed analytical evaluation of '{dataset_name}'. "
+            f"Synthesizing {total_records:,} observed records across {len(dataframes)} table(s) in the {domain} domain, "
+            f"the analysis captures macro operational velocity, category distributions, and key performance benchmarks. "
+            f"Primary indicators demonstrate solid operational baseline performance: {kpi_bullets}.\n\n"
+            f"Overall data quality registers at **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')}), "
+            f"confirming that the underlying data is complete, consistent, and dependable for strategic planning. "
+            f"This comprehensive synthesis gives leadership verified visibility to evaluate run-rates, allocate resources, "
+            f"and make confident, data-informed decisions."
         )
 
         exec_content = domain_narratives.get(domain, default_exec_narrative)
 
         sections.append({
             "section_type": "executive_summary",
-            "title": f"Executive Intelligence Synthesis • {domain}",
+            "title": f"Executive Summary • {domain}",
             "content": exec_content,
             "order_index": order,
             "charts_included": [kpi_chart] if kpi_chart else [],
@@ -707,13 +723,15 @@ class ReportService:
         # -------------------------------------------------------------
         if sample_table:
             sample_content = (
-                f"The following table provides a curated, high-value excerpt of vital records extracted directly from "
-                f"the uploaded files ('{primary_name}'). Prominent numerical metrics, categorical dimensions, and identifying "
-                f"attributes contextualize macro-level aggregations with granular transactional evidence."
+                f"This section displays a curated snapshot of representative records directly from '{primary_name}', "
+                f"providing concrete context for the aggregated metrics throughout this report.\n\n"
+                f"Reviewing these individual transactional entries allows stakeholders to verify field structure, "
+                f"identifier conventions, date ranges, and numerical distributions. Examining actual rows alongside "
+                f"executive summaries provides a tangible, verified connection between raw data inputs and top-level business indicators."
             )
             sections.append({
                 "section_type": "dataset_overview",
-                "title": f"Key Dataset Records & Entity Snapshot",
+                "title": "Sample Records & Data Snapshot",
                 "content": sample_content,
                 "order_index": order,
                 "charts_included": [],
@@ -738,23 +756,31 @@ class ReportService:
             kpi_rows.append(row_entry)
 
         kpi_section_titles = {
-            "Retail & E-Commerce": "Commercial Performance & Revenue Metrics",
-            "Human Resources": "Talent & Workforce Operational Metrics",
-            "Banking & Finance": "Financial Position & Liquidity Indicators",
-            "Healthcare & Clinical": "Clinical Outcomes & Patient Care Metrics",
-            "Logistics & Supply Chain": "Fulfillment Velocity & Supply Chain KPIs",
-            "SaaS & Digital Product": "Recurring Revenue & User Lifecycle KPIs"
+            "Retail & E-Commerce": "Key Sales & Revenue Metrics",
+            "Human Resources": "Key Workforce & Staffing Metrics",
+            "Banking & Finance": "Key Financial & Cash Flow Metrics",
+            "Healthcare & Clinical": "Key Patient & Clinical Metrics",
+            "Logistics & Supply Chain": "Key Shipping & Fulfillment Metrics",
+            "SaaS & Digital Product": "Key Product & Subscription Metrics"
         }
+
+        kpi_narrative = (
+            "Key Performance Indicators (KPIs) represent the primary quantitative benchmarks used to monitor business health, "
+            "operational volume, and overall momentum. Each metric below was calculated directly from verified fields in your dataset "
+            "to establish an objective operational baseline.\n\n"
+            "By reviewing these headline figures together, management can quickly evaluate whether current run-rates align with organizational "
+            "goals, detect early changes in operating volume, and maintain clear visibility into day-to-day performance."
+        )
 
         sections.append({
             "section_type": "key_metrics",
-            "title": kpi_section_titles.get(domain, "Key Performance Indicators & Valuation Matrix"),
-            "content": "The following operational metrics were dynamically computed from the raw dataset, establishing verified baseline measures across primary entities.",
+            "title": kpi_section_titles.get(domain, "Key Performance Indicators (KPIs)"),
+            "content": kpi_narrative,
             "order_index": order,
             "charts_included": [kpi_chart] if kpi_chart else [],
             "tables_included": [{
-                "title": "Dynamic KPI Decomposition Matrix",
-                "subtitle": "Computed baselines across numerical features",
+                "title": "KPI Breakdown Table",
+                "subtitle": "Computed baselines across key numerical fields",
                 "headers": ["Metric Name", "Computed Value", "Calculation Base", "Source Column & Table"],
                 "rows": kpi_rows,
                 "alignments": ["left", "right", "center", "left"],
@@ -768,20 +794,24 @@ class ReportService:
         # -------------------------------------------------------------
         if segment_table or segment_chart:
             segment_section_titles = {
-                "Retail & E-Commerce": "Product, SKU & Category Distribution Dynamics",
-                "Human Resources": "Departmental Headcount & Compensation Distribution",
-                "Banking & Finance": "Account Class & Channel Exposure Analysis",
-                "Healthcare & Clinical": "Diagnosis & Clinical Treatment Distributions",
-                "Logistics & Supply Chain": "Carrier, Route & Facility Performance Breakdown",
-                "SaaS & Digital Product": "Subscription Tier & Customer Cohort Dynamics"
+                "Retail & E-Commerce": "Product & Category Breakdown",
+                "Human Resources": "Department & Headcount Breakdown",
+                "Banking & Finance": "Account & Channel Breakdown",
+                "Healthcare & Clinical": "Diagnosis & Treatment Breakdown",
+                "Logistics & Supply Chain": "Carrier & Route Breakdown",
+                "SaaS & Digital Product": "Subscription Tier Breakdown"
             }
+            segment_narrative = (
+                "Categorical segmentation organizes aggregate numbers across primary groups, departments, channels, or product families "
+                "to illustrate where operational activity and value are concentrated.\n\n"
+                "In most organizations, a significant share of total output is generated by a core subset of leading categories. "
+                "Identifying your top contributors helps leadership focus resources and marketing efforts where they produce the highest return, "
+                "while highlighting smaller segments identifies areas that may benefit from process improvements or growth initiatives."
+            )
             sections.append({
                 "section_type": "segment_analysis",
-                "title": segment_section_titles.get(domain, "Segment Contribution & Category Distribution"),
-                "content": (
-                    f"Cross-tabulation of primary categorical segments reveals volumetric and value concentration. "
-                    f"Analyzing performance share across entities identifies dominant contributors and operational variances."
-                ),
+                "title": segment_section_titles.get(domain, "Category & Segment Breakdown"),
+                "content": segment_narrative,
                 "order_index": order,
                 "charts_included": [segment_chart] if segment_chart else [],
                 "tables_included": [segment_table] if segment_table else []
@@ -792,14 +822,16 @@ class ReportService:
         # 5. Statistical Dispersion & Parameter Deep-Dive
         # -------------------------------------------------------------
         if stats_table or dispersion_chart:
+            dispersion_narrative = (
+                "Analyzing value distribution provides essential insight into the consistency, spread, and predictability of your operational measures.\n\n"
+                "Comparing the average (mean) with the middle value (median) clarifies whether recorded numbers are evenly balanced or pulled upward "
+                "or downward by unusually high or low entries. Evaluating the minimum, maximum, and standard deviation establishes a realistic range "
+                "of expected performance, helping teams plan budgets, allocate staff, and set achievable targets with confidence."
+            )
             sections.append({
                 "section_type": "trend_analysis",
-                "title": "Statistical Distribution & Variance Profile",
-                "content": (
-                    f"Comprehensive parametric evaluation across numerical measures. Comparing the Mean and Median "
-                    f"illustrates distribution skewness, while Standard Deviation and Range (Min-Max) characterize "
-                    f"dispersion and variance in the raw data."
-                ),
+                "title": "Value Distribution & Typical Spreads",
+                "content": dispersion_narrative,
                 "order_index": order,
                 "charts_included": [dispersion_chart] if dispersion_chart else [],
                 "tables_included": [stats_table] if stats_table else []
@@ -810,13 +842,16 @@ class ReportService:
         # 6. Longitudinal Cadence & Temporal Trends (Conditional)
         # -------------------------------------------------------------
         if temporal_table or temporal_chart:
+            temporal_narrative = (
+                "Tracking metrics across sequential dates and time intervals illustrates the operational rhythm, seasonal cadence, and trajectory of your business.\n\n"
+                "Longitudinal analysis helps differentiate temporary short-term spikes from sustained, meaningful trends. "
+                "Observing these time-based patterns enables management to anticipate upcoming peak workload cycles, adjust staffing and inventory "
+                "ahead of schedule, and accurately evaluate the long-term impact of past operational decisions."
+            )
             sections.append({
                 "section_type": "trend_analysis",
-                "title": "Longitudinal Trends & Temporal Cadence",
-                "content": (
-                    f"Temporal analysis evaluates observation pacing, seasonality, and period-over-period momentum. "
-                    f"The visualization and table below isolate time-based cohorts to highlight operational acceleration or decline."
-                ),
+                "title": "Performance Trends Over Time",
+                "content": temporal_narrative,
                 "order_index": order,
                 "charts_included": [temporal_chart] if temporal_chart else [],
                 "tables_included": [temporal_table] if temporal_table else []
@@ -829,12 +864,23 @@ class ReportService:
         insight_bullets = []
         for ins in insights:
             tag = f"[{ins.get('statement_type', 'CALCULATION').upper()}]"
-            insight_bullets.append(f"• {tag} **{ins['title']}**: {ins['description']}\n  *(Strategic Impact: {ins.get('why_it_matters', 'Essential for performance baseline')})*")
+            insight_bullets.append(
+                f"• {tag} **{ins['title']}**: {ins['description']}\n"
+                f"  *(Why It Matters: {ins.get('why_it_matters', 'Essential operational benchmark for strategic planning.')})*"
+            )
+
+        insight_intro = (
+            "The following strategic insights highlight notable empirical patterns and findings discovered across your dataset dimensions. "
+            "Each observation connects a verified quantitative pattern with its practical operational significance:\n\n"
+        )
+        insight_content = insight_intro + "\n\n".join(insight_bullets) if insight_bullets else (
+            "No unusual variances or critical anomalies detected across primary dimensions. Operational metrics remain within normal expected ranges."
+        )
 
         sections.append({
             "section_type": "insights",
-            "title": "Strategic Insights & Performance Findings",
-            "content": "\n\n".join(insight_bullets) if insight_bullets else "No critical anomalies or shifts detected across primary dimensions.",
+            "title": "Key Insights & Strategic Findings",
+            "content": insight_content,
             "order_index": order,
             "charts_included": [],
             "tables_included": []
@@ -846,13 +892,19 @@ class ReportService:
         # -------------------------------------------------------------
         dq_issues = health_info.get("issues", [])
         dq_content = (
-            f"**Dataset Health Index**: {health_info.get('score', 100)}/100 ({health_info.get('rating', 'Good')})\n"
-            f"• Evaluated Cell Density: {health_info.get('metrics', {}).get('total_cells', 0):,} total cells.\n"
-            f"• Missing Cell Count: {health_info.get('metrics', {}).get('missing_cells', 0):,} ({health_info.get('metrics', {}).get('missing_pct', 0)}%).\n"
-            f"• Duplicate Observations: {health_info.get('metrics', {}).get('duplicate_rows', 0):,} ({health_info.get('metrics', {}).get('duplicate_pct', 0)}%)."
+            f"A thorough data health audit confirms the completeness, structural integrity, and reliability of the underlying dataset, "
+            f"ensuring leadership can make strategic decisions with confidence.\n\n"
+            f"**Overall Data Health Score**: **{health_info.get('score', 100)}/100** ({health_info.get('rating', 'Good')})\n"
+            f"• **Evaluated Data Points**: {health_info.get('metrics', {}).get('total_cells', 0):,} total cells analyzed across all records.\n"
+            f"• **Missing Field Count**: {health_info.get('metrics', {}).get('missing_cells', 0):,} missing entries ({health_info.get('metrics', {}).get('missing_pct', 0)}%).\n"
+            f"• **Duplicate Records**: {health_info.get('metrics', {}).get('duplicate_rows', 0):,} duplicated rows detected ({health_info.get('metrics', {}).get('duplicate_pct', 0)}%).\n\n"
+            f"High data health ratings indicate that essential fields are well-populated and free from severe structural corruption, "
+            f"minimizing reporting distortions and providing reliable numbers for operational planning."
         )
         if dq_issues:
-            dq_content += "\n\n**Quality Observations & Heuristics**:\n" + "\n".join(f"• [{i['severity'].upper()}] **{i['title']}**: {i['description']}" for i in dq_issues[:4])
+            dq_content += "\n\n**Observed Data Quality Notes**:\n" + "\n".join(
+                f"• [{i['severity'].upper()}] **{i['title']}**: {i['description']}" for i in dq_issues[:4]
+            )
 
         anom_table = None
         if anomalies:
@@ -877,7 +929,7 @@ class ReportService:
 
         sections.append({
             "section_type": "data_quality",
-            "title": "Data Quality, Hygiene & Anomaly Audit",
+            "title": "Data Quality & Health Audit",
             "content": dq_content,
             "order_index": order,
             "charts_included": [anomaly_chart] if anomaly_chart else [],
@@ -891,18 +943,20 @@ class ReportService:
         recs = [ins.get("recommendation") for ins in insights if ins.get("recommendation")]
         if not recs:
             recs = [
-                f"Establish automated metric threshold monitoring for primary KPIs ({', '.join(k['display_name'] for k in kpis[:2])}).",
-                f"Implement periodic cross-table reconciliation to sustain data health index at or above {health_info.get('score', 100)}/100.",
-                "Review segment distribution variance during upcoming operational review cycle."
+                f"Establish recurring metric monitoring for primary indicators ({', '.join(k['display_name'] for k in kpis[:2])}) to track performance run-rates and identify emerging variations early.",
+                f"Maintain data ingestion validation protocols to preserve your data health score above {health_info.get('score', 100)}/100 and safeguard data integrity over time.",
+                "Conduct regular category reviews to align operational resourcing with the top-contributing business segments.",
+                "Review outlier records periodically to confirm whether high-value observations reflect authentic growth surges or require workflow adjustments."
             ]
 
         recs_text = (
-            "Based on autonomous multi-dimensional synthesis, the following prioritized strategic initiatives are recommended:\n\n"
+            "Based on autonomous multi-dimensional analysis of your dataset, the following prioritized action items are recommended "
+            "to strengthen operational performance, protect data quality, and capitalize on identified opportunities:\n\n"
             + "\n".join(f"{idx+1}. **{r}**" for idx, r in enumerate(recs[:5]))
         )
         sections.append({
             "section_type": "recommendations",
-            "title": "Prioritized Strategic Action Plan",
+            "title": "Recommended Next Steps & Action Plan",
             "content": recs_text,
             "order_index": order,
             "charts_included": [],

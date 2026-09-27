@@ -280,6 +280,48 @@ export interface AIChartBlueprint {
   ai_rationale: string;
 }
 
+export interface AIDynamicArchetype {
+  id: string;
+  category: string;
+  title: string;
+  name?: string;
+  badge: string;
+  badge_class: string;
+  desc: string;
+  suggested_prompt: string;
+  charts_planned: string[];
+  charts?: any[];
+  recommended: boolean;
+  target_table: string;
+  x_field?: string;
+  y_field?: string;
+  secondary_y_field?: string;
+  date_field?: string;
+  icon_type?: string;
+  metrics_spotlight?: string[];
+  dimensions_spotlight?: string[];
+}
+
+export interface AIDiscoveredArchetypesResponse {
+  dataset_id: string;
+  dataset_name: string;
+  domain: string;
+  domain_confidence: number;
+  summary: string;
+  recommended_archetype_id: string;
+  archetypes: AIDynamicArchetype[];
+  data_profile?: {
+    primary_table?: string;
+    primary_metrics?: string[];
+    efficiency_metrics?: string[];
+    dimensions?: string[];
+    dates?: string[];
+    domain_key?: string;
+    domain_badge?: string;
+    domain_icon?: string;
+  };
+}
+
 export interface DashboardSheet {
   id: string;
   dataset_id: string;
@@ -376,6 +418,9 @@ export interface ForecastPoint {
   period: string;
   step: number;
   forecast: number;
+  upper_bound?: number;
+  lower_bound?: number;
+  uncertainty_growth?: number;
   upper_95: number;
   lower_95: number;
   upper_80: number;
@@ -396,6 +441,7 @@ export interface ForecastResult {
   date_col: string;
   frequency: string;
   horizon: number;
+  confidence_level?: number;
   historical_count: number;
   historical: ForecastHistoricalPoint[];
   forecast: ForecastPoint[];
@@ -541,6 +587,7 @@ export interface SqlQueryResult {
   };
   sql_query: string;
   error?: string;
+  summary?: string;
 }
 
 export interface SqlTranslateResult {
@@ -548,6 +595,7 @@ export interface SqlTranslateResult {
   pandas_code: string;
   detected_dimension?: string;
   detected_metric?: string;
+  explanation?: string;
 }
 
 // -------------------------------------------------------------
@@ -605,6 +653,48 @@ export interface ScenarioSegmentBreakdown {
   variance_pct: number;
 }
 
+export interface ScenarioConfidenceIntervals {
+  p10: number;
+  p50: number;
+  p90: number;
+}
+
+export interface ScenarioSensitivityCell {
+  x_shift: number;
+  y_shift: number;
+  projected: number;
+  variance_pct: number;
+}
+
+export interface ScenarioSensitivityMatrix {
+  lever_x: string;
+  lever_y: string;
+  x_shifts: number[];
+  y_shifts: number[];
+  grid: ScenarioSensitivityCell[][];
+}
+
+export interface ScenarioAISummary {
+  headline: string;
+  tone: 'growth' | 'downside' | 'neutral';
+  key_driver: string;
+  key_driver_delta: number;
+  strategic_implications: string[];
+  risk_assessment: string;
+}
+
+export interface SavedScenarioSnapshot {
+  id: string;
+  name: string;
+  createdAt: string;
+  target_metric: string;
+  dimension_col?: string;
+  levers: Array<{ column: string; shift_pct: number }>;
+  projected_total: number;
+  net_delta: number;
+  variance_pct: number;
+}
+
 export interface ScenarioSimulationResult {
   target_metric: string;
   baseline_total: number;
@@ -616,6 +706,9 @@ export interface ScenarioSimulationResult {
   comparison_chart: Array<{ label: string; value: number; fill?: string }>;
   waterfall_steps: Array<{ step: string; value: number; type: 'base' | 'positive' | 'negative' | 'total' }>;
   segment_breakdown: ScenarioSegmentBreakdown[];
+  confidence_intervals?: ScenarioConfidenceIntervals;
+  sensitivity_matrix?: ScenarioSensitivityMatrix;
+  ai_summary?: ScenarioAISummary;
 }
 
 // -------------------------------------------------------------

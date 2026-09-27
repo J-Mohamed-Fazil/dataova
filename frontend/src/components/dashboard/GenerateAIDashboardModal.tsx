@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   X,
   Sparkles,
@@ -16,15 +16,14 @@ import {
   Activity,
   Lightbulb,
   Radio,
-  BarChart3,
   Target,
-  Sliders,
-  DollarSign,
-  PieChart,
-  HelpCircle,
-  Wand2
+  Wand2,
+  RefreshCw,
+  Database,
+  Cpu,
+  DollarSign
 } from 'lucide-react';
-import { Dataset, DashboardSheet } from '../../types';
+import { Dataset, DashboardSheet, AIDynamicArchetype, AIDiscoveredArchetypesResponse } from '../../types';
 import { api } from '../../services/api';
 
 interface GenerateAIDashboardModalProps {
@@ -34,98 +33,6 @@ interface GenerateAIDashboardModalProps {
   onSuccess: (newSheets: DashboardSheet[], message: string) => void;
 }
 
-interface PresetOption {
-  id: string;
-  category: 'executive' | 'growth' | 'operations' | 'relational';
-  title: string;
-  badge: string;
-  badgeClass: string;
-  desc: string;
-  icon: any;
-  suggestedPrompt: string;
-  chartsPlanned: string[];
-}
-
-const PRESETS: PresetOption[] = [
-  {
-    id: 'executive',
-    category: 'executive',
-    title: 'Executive Pulse & KPI Synthesis',
-    badge: 'Executive',
-    badgeClass: 'badge-neon-blue',
-    desc: 'Core volume metrics, Pareto drivers, longitudinal trajectory, and benchmark spreads.',
-    icon: Award,
-    suggestedPrompt: 'Executive leadership overview highlighting core drivers, momentum, and high-leverage opportunities.',
-    chartsPlanned: ['Dual-Axis Primary Driver Composed', 'Macro Trajectory Area Gradient', 'Demographic Polar Radar Profile', 'Driver Dispersion Scatter Matrix']
-  },
-  {
-    id: 'revenue_growth',
-    category: 'growth',
-    title: 'Revenue, Margin & Growth Intelligence',
-    badge: 'Financials',
-    badgeClass: 'badge-neon-emerald',
-    desc: 'Dual-axis volume vs margins, chronological pacing, pricing elasticity, and territory splits.',
-    icon: TrendingUp,
-    suggestedPrompt: 'Contrasting volume scale against efficiency margins with growth pacing and territory contribution.',
-    chartsPlanned: ['Revenue vs Margin Composed Dual-Axis', 'Territory Profitability Horizontal Bar', 'Chronological Growth Pacing Area', 'Pricing Elasticity Scatter', 'Revenue Portfolio Share Donut']
-  },
-  {
-    id: 'customer_cohort',
-    category: 'growth',
-    title: 'Customer Cohort & Demographic Segmentation',
-    badge: 'Demographics',
-    badgeClass: 'badge-neon-purple',
-    desc: 'Cohort distributions, frequency vs monetary scatter, and multi-entity radar profiles.',
-    icon: Users,
-    suggestedPrompt: 'Customer segmentation matrix analyzing cohort behavior, frequency concentration, and retention.',
-    chartsPlanned: ['Cohort Proportional Area Treemap', 'Demographic Polar Radar Profile', 'RFM Value vs Frequency Scatter Matrix', 'Account Tier Density Horizontal Bar', 'Cohort Onboarding Velocity Area']
-  },
-  {
-    id: 'operations_risk',
-    category: 'operations',
-    title: 'Operational Velocity & Risk Exposure',
-    badge: 'Operations',
-    badgeClass: 'badge-neon-amber',
-    desc: 'Anomaly distributions, concentration exposure, peak spread variance, and cycle velocity.',
-    icon: ShieldAlert,
-    suggestedPrompt: 'Identify operational bottlenecks, concentration risk, and outlier deviations exceeding 2.5x standard deviations.',
-    chartsPlanned: ['2D Operational Bottleneck Heatmap Matrix', 'Outlier Variance & Risk Tails Histogram', 'Operational Velocity Horizontal Bar', 'Concentration Risk Polar Radar', 'Chronological Volatility Spikes Line']
-  },
-  {
-    id: 'profitability_frontier',
-    category: 'executive',
-    title: 'Unit Economics & Profitability Frontier',
-    badge: 'Unit Economics',
-    badgeClass: 'badge-neon-cyan',
-    desc: 'Segment gross margin spreads, unit contribution rankings, and dynamic pricing leverage.',
-    icon: DollarSign,
-    suggestedPrompt: 'Analyze gross margin spreads across product tiers to locate highest-yield contribution cohorts.',
-    chartsPlanned: ['Unit Contribution Margin Horizontal Ranking', 'Price vs Cost Yield Composed Spread', 'Break-Even Frontier Scatter Matrix', 'Gross Margin Velocity Area Gradient', 'Profit Contribution Share Donut']
-  },
-  {
-    id: 'predictive_momentum',
-    category: 'operations',
-    title: 'Predictive Forecast & Longitudinal Momentum',
-    badge: 'Forecast',
-    badgeClass: 'badge-neon-pink',
-    desc: 'Time-series momentum, velocity acceleration, run-rate projection, and cyclicality inflection.',
-    icon: Activity,
-    suggestedPrompt: 'Evaluate period-over-period run-rate velocity and project forward momentum with confidence bounds.',
-    chartsPlanned: ['Longitudinal Momentum & ARIMA Forecast Area', 'Period-over-Period Velocity Pacing Bar', 'Cyclical Rhythm & Wave Seasonality Line', 'Velocity Acceleration vs Volume Scatter']
-  },
-  {
-    id: 'comprehensive',
-    category: 'relational',
-    title: 'Universal Multi-Table Discovery',
-    badge: 'All Tables',
-    badgeClass: 'badge-neon-blue',
-    desc: 'Exhaustively connects all relational spanning trees across every single and joined table.',
-    icon: GitBranch,
-    suggestedPrompt: 'Full automated synthesis across all relational tables, cross-joins, and dimensions.',
-    chartsPlanned: ['Cross-Table Relational Entity Bridges', 'Universal Spanning Trees', 'Multi-Dimensional Categoricals', 'Correlation Scatters']
-  }
-];
-
 const PALETTES = [
   { id: 'cyberpunk', name: 'Cyberpunk Neon', colors: ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'] },
   { id: 'emerald', name: 'Executive Emerald', colors: ['#10b981', '#059669', '#14b8a6', '#34d399'] },
@@ -133,13 +40,28 @@ const PALETTES = [
   { id: 'sunset', name: 'Sunset Amber', colors: ['#f59e0b', '#ea580c', '#f97316', '#e11d48'] }
 ];
 
-const SAMPLE_PROMPTS = [
-  { text: 'Regional profit margins & delivery risk alerts', cat: 'Finance & Risk' },
-  { text: 'Product category profitability matrix vs volume scale', cat: 'Margins' },
-  { text: 'High-value customer retention & monetary velocity', cat: 'Cohorts' },
-  { text: 'Quarterly sales growth trajectory with anomaly flags', cat: 'Growth' },
-  { text: 'Operational bottleneck variance exceeding 2.5x mean', cat: 'Operations' }
-];
+const getArchetypeIcon = (iconType?: string, id?: string) => {
+  switch (iconType) {
+    case 'Award': return Award;
+    case 'TrendingUp': return TrendingUp;
+    case 'ShieldAlert': return ShieldAlert;
+    case 'Activity': return Activity;
+    case 'DollarSign': return DollarSign;
+    case 'Users': return Users;
+    case 'GitBranch': return GitBranch;
+    case 'Zap': return Zap;
+    case 'Target': return Target;
+    case 'Layers': return Layers;
+    default:
+      if (id?.includes('scale')) return Award;
+      if (id?.includes('frontier') || id?.includes('efficiency')) return TrendingUp;
+      if (id?.includes('risk') || id?.includes('variance')) return ShieldAlert;
+      if (id?.includes('momentum') || id?.includes('forecast')) return Activity;
+      if (id?.includes('cohort')) return Users;
+      if (id?.includes('economics')) return DollarSign;
+      return Sparkles;
+  }
+};
 
 export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> = ({
   dataset,
@@ -147,8 +69,10 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
   onClose,
   onSuccess
 }) => {
-  const [selectedPreset, setSelectedPreset] = useState<string>('executive');
-  const [presetCategoryFilter, setPresetCategoryFilter] = useState<string>('all');
+  const [discoveredData, setDiscoveredData] = useState<AIDiscoveredArchetypesResponse | null>(null);
+  const [isLoadingArchetypes, setIsLoadingArchetypes] = useState<boolean>(true);
+  const [selectedArchetypeId, setSelectedArchetypeId] = useState<string>('auto');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [selectedPalette, setSelectedPalette] = useState<string>('cyberpunk');
   const [mode, setMode] = useState<'add_sheet' | 'replace_all'>('replace_all');
@@ -157,18 +81,91 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
   const [progressStep, setProgressStep] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  if (!isOpen) return null;
+  // Discover dynamic archetypes directly from the dataset
+  const fetchArchetypes = () => {
+    if (!dataset.id) return;
+    setIsLoadingArchetypes(true);
+    api.getAIDiscoveredArchetypes(dataset.id)
+      .then((data) => {
+        setDiscoveredData(data);
+        if (data.recommended_archetype_id) {
+          setSelectedArchetypeId(data.recommended_archetype_id);
+        } else if (data.archetypes && data.archetypes.length > 0) {
+          setSelectedArchetypeId(data.archetypes[0].id);
+        }
+      })
+      .catch((err) => {
+        console.warn('Could not discover dynamic archetypes:', err);
+      })
+      .finally(() => {
+        setIsLoadingArchetypes(false);
+      });
+  };
+
+  useEffect(() => {
+    if (isOpen && dataset.id) {
+      fetchArchetypes();
+    }
+  }, [isOpen, dataset.id]);
 
   // Extract available columns for quick focus selection
   const availableColumns = dataset.tables?.[0]?.columns || [];
   const numericColumns = availableColumns.filter(c => c.data_type === 'numeric');
   const categoricalColumns = availableColumns.filter(c => c.data_type === 'categorical' || c.data_type === 'text');
 
-  const filteredPresets = presetCategoryFilter === 'all'
-    ? PRESETS
-    : PRESETS.filter(p => p.category === presetCategoryFilter);
+  const archetypes = discoveredData?.archetypes || [];
 
-  const activePresetObj = PRESETS.find(p => p.id === selectedPreset) || PRESETS[0];
+  const categories = useMemo(() => {
+    const cats = Array.from(new Set(archetypes.map(a => a.category).filter(Boolean)));
+    return ['all', ...cats];
+  }, [archetypes]);
+
+  const filteredArchetypes = categoryFilter === 'all'
+    ? archetypes
+    : archetypes.filter(a => a.category === categoryFilter);
+
+  const activeArchetype = archetypes.find(a => a.id === selectedArchetypeId) || archetypes[0] || null;
+
+  // Dynamically generate sample prompts tailored strictly to this dataset's columns
+  const dynamicSamplePrompts = useMemo(() => {
+    const prompts = [];
+    const pNum = numericColumns[0]?.column_name;
+    const sNum = numericColumns[1]?.column_name;
+    const pCat = categoricalColumns[0]?.column_name;
+    const sCat = categoricalColumns[1]?.column_name;
+
+    if (pNum && pCat) {
+      prompts.push({
+        text: `Analyze ${pNum.replace('_', ' ')} scale & driver concentration across ${pCat.replace('_', ' ')}`,
+        cat: 'Scale Driver'
+      });
+    }
+    if (pNum && sNum) {
+      prompts.push({
+        text: `Examine efficiency trade-offs and non-linear yield between ${pNum.replace('_', ' ')} and ${sNum.replace('_', ' ')}`,
+        cat: 'Frontier'
+      });
+    }
+    if (pNum) {
+      prompts.push({
+        text: `Isolate statistical variance anomalies and risk tails exceeding 2.0x standard deviations in ${pNum.replace('_', ' ')}`,
+        cat: 'Anomaly Risk'
+      });
+    }
+    if (pCat && sCat) {
+      prompts.push({
+        text: `Map cross-dimensional cohort clustering across ${pCat.replace('_', ' ')} and ${sCat.replace('_', ' ')}`,
+        cat: 'Demographics'
+      });
+    }
+    prompts.push({
+      text: 'Synthesize all possible charts across all tables, connecting all relational foreign keys and single-table dimensions',
+      cat: 'All Dashboards'
+    });
+    return prompts.slice(0, 5);
+  }, [numericColumns, categoricalColumns]);
+
+  if (!isOpen) return null;
 
   const toggleMetricFocus = (colName: string) => {
     setSelectedMetricFocus(prev =>
@@ -182,14 +179,49 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
 
   const handleEnhancePrompt = () => {
     if (!customPrompt.trim()) {
-      setCustomPrompt(activePresetObj.suggestedPrompt);
+      if (activeArchetype?.suggested_prompt) {
+        setCustomPrompt(activeArchetype.suggested_prompt);
+      }
       return;
     }
     const focusAdd = selectedMetricFocus.length > 0 ? ` with targeted focus on ${selectedMetricFocus.join(', ')}` : '';
-    setCustomPrompt(`Synthesize executive business insights and multi-dimensional composed charts for: ${customPrompt.trim()}${focusAdd}. Highlight key Pareto drivers and risk exposure.`);
+    setCustomPrompt(`Synthesize executive data-backed insights and multi-dimensional composed charts for: ${customPrompt.trim()}${focusAdd}. Highlight key drivers and variance bottlenecks.`);
+  };
+
+  const handleGenerateAll = async () => {
+    setIsGenerating(true);
+    setErrorMsg(null);
+    setProgressStep(1);
+
+    const stepInterval = setInterval(() => {
+      setProgressStep((prev) => (prev < 4 ? prev + 1 : prev));
+    }, 600);
+
+    try {
+      const regenerated = await api.generateAllDashboards(dataset.id);
+      clearInterval(stepInterval);
+      const totalNewCharts = regenerated.reduce((sum, s) => sum + (s.charts?.length || 0), 0);
+      onSuccess(
+        regenerated,
+        `All Dashboards synthesized: ${totalNewCharts} exhaustive visualizations generated across ${regenerated.length} sheets connecting all tables!`
+      );
+      onClose();
+    } catch (err: any) {
+      clearInterval(stepInterval);
+      console.error('Failed to generate all dashboards:', err);
+      setErrorMsg(err.message || 'Failed to synthesize all dashboards. Please check backend connection.');
+    } finally {
+      setIsGenerating(false);
+      setProgressStep(0);
+    }
   };
 
   const handleGenerate = async () => {
+    const targetPreset = selectedArchetypeId || 'auto';
+    if (targetPreset === 'all' || targetPreset === 'all_dashboards') {
+      return handleGenerateAll();
+    }
+
     setIsGenerating(true);
     setErrorMsg(null);
     setProgressStep(1);
@@ -206,30 +238,19 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
             : userTypedPrompt)
         : (selectedMetricFocus.length > 0 ? `Focus metrics: ${selectedMetricFocus.join(', ')}` : undefined);
 
-      if (selectedPreset === 'comprehensive' && !customPrompt.trim()) {
-        const regenerated = await api.generateAllDashboards(dataset.id);
-        clearInterval(stepInterval);
-        const totalNewCharts = regenerated.reduce((sum, s) => sum + (s.charts?.length || 0), 0);
-        onSuccess(
-          regenerated,
-          `Synthesized all possible visualizations: ${totalNewCharts} charts across ${regenerated.length} sheets!`
-        );
-        onClose();
-      } else {
-        const regenerated = await api.aiGenerateDashboard(dataset.id, {
-          prompt: combinedPrompt,
-          preset: selectedPreset,
-          palette: selectedPalette,
-          mode
-        });
-        clearInterval(stepInterval);
-        const totalNewCharts = regenerated.reduce((sum, s) => sum + (s.charts?.length || 0), 0);
-        onSuccess(
-          regenerated,
-          `AI Dashboard synthesized successfully: ${totalNewCharts} tailored visualizations and executive business insights generated!`
-        );
-        onClose();
-      }
+      const regenerated = await api.aiGenerateDashboard(dataset.id, {
+        prompt: combinedPrompt,
+        preset: targetPreset,
+        palette: selectedPalette,
+        mode
+      });
+      clearInterval(stepInterval);
+      const totalNewCharts = regenerated.reduce((sum, s) => sum + (s.charts?.length || 0), 0);
+      onSuccess(
+        regenerated,
+        `AI Dashboard synthesized successfully: ${totalNewCharts} tailored visualizations and data-backed business insights generated!`
+      );
+      onClose();
     } catch (err: any) {
       clearInterval(stepInterval);
       console.error('Failed to generate AI dashboard:', err);
@@ -255,12 +276,15 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
             <div>
               <h3 className="text-base font-extrabold text-white tracking-tight flex items-center gap-2">
                 <span>AI Business Insight Studio & Dashboard Synthesis</span>
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-mono font-bold">
-                  Cognitive v3.0
-                </span>
+                {discoveredData?.domain && (
+                  <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-mono font-bold flex items-center gap-1">
+                    <Cpu className="w-3 h-3 text-cyan-400" />
+                    <span>{discoveredData.domain}</span>
+                  </span>
+                )}
               </h3>
               <p className="text-xs text-slate-300 mt-0.5">
-                Synthesize dual-axis charts, area gradients, radar profiles, and data-backed business insights.
+                Zero pre-built templates. The AI examines your columns, data types, and distributions to synthesize data-native archetypes.
               </p>
             </div>
           </div>
@@ -324,78 +348,168 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
                 </div>
               )}
 
-              {/* Archetype Filter Tabs & Preset Selection */}
+              {/* AI Dataset Intelligence Banner */}
+              <div className="p-3.5 rounded-xl bg-gradient-to-r from-slate-950/90 via-indigo-950/40 to-slate-950/90 border border-indigo-500/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-400/40 flex items-center justify-center text-cyan-300 shrink-0">
+                    <Database className="w-4 h-4 text-cyan-300" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white tracking-wide">
+                        AI Data Intelligence for <strong className="text-cyan-300">{dataset.name}</strong>
+                      </span>
+                      {discoveredData && (
+                        <span className="text-[9px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                          {discoveredData.domain}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      {discoveredData?.summary || 'Scanning columns and data types...'}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={fetchArchetypes}
+                  disabled={isLoadingArchetypes}
+                  className="px-2.5 py-1 rounded-lg bg-slate-900 border border-slate-700/80 hover:border-cyan-500/50 text-[10px] text-slate-300 hover:text-cyan-300 transition flex items-center gap-1.5 shrink-0"
+                >
+                  <RefreshCw className={`w-3 h-3 ${isLoadingArchetypes ? 'animate-spin' : ''}`} />
+                  <span>Re-scan Data</span>
+                </button>
+              </div>
+
+              {/* Generate All Dashboards Feature Callout */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-purple-950/50 via-indigo-950/40 to-slate-950/70 border border-purple-500/40 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-lg shadow-purple-950/20">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-purple-300 shrink-0">
+                    <Layers className="w-5 h-5 text-purple-300" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white tracking-wide">
+                        Generate All Dashboards & Connected Tables
+                      </span>
+                      <span className="text-[9px] px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 font-mono font-bold">
+                        ALL POSSIBLE CHARTS
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 mt-0.5">
+                      Synthesizes all possible charts across your data—connecting all {dataset.tables?.length || 1} table(s), foreign key joins, single-table metrics, temporal trajectories, and multi-dimensional insights.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleGenerateAll}
+                  disabled={isGenerating}
+                  className="px-4 py-2 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white text-xs font-bold transition-all flex items-center gap-2 shadow-lg shadow-purple-500/25 border border-purple-400/40 shrink-0 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50"
+                  title="Generate all possible charts across all tables and relational connections"
+                >
+                  <Layers className="w-3.5 h-3.5 text-purple-200" />
+                  <span>Generate All Dashboards</span>
+                </button>
+              </div>
+
+              {/* AI Discovered Dynamic Archetypes Selection */}
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                   <label className="text-xs font-bold text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
                     <Layers className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Choose Analytical Archetype & Insight Focus</span>
+                    <span>AI-Generated Archetypes for this Data</span>
                   </label>
 
-                  {/* Category Filter Tabs */}
-                  <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
-                    {[
-                      { id: 'all', label: 'All Presets' },
-                      { id: 'executive', label: 'Executive' },
-                      { id: 'growth', label: 'Growth' },
-                      { id: 'operations', label: 'Operations' }
-                    ].map(tab => (
-                      <button
-                        key={tab.id}
-                        type="button"
-                        onClick={() => setPresetCategoryFilter(tab.id)}
-                        className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition ${
-                          presetCategoryFilter === tab.id
-                            ? 'bg-indigo-600/40 text-white border border-indigo-500/50 shadow-sm'
-                            : 'text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
+                  {/* Dynamic Category Filter Tabs */}
+                  {categories.length > 2 && (
+                    <div className="flex items-center gap-1 bg-slate-950/80 p-1 rounded-xl border border-slate-800">
+                      {categories.map(cat => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setCategoryFilter(cat)}
+                          className={`text-[11px] font-semibold px-2.5 py-1 rounded-lg transition capitalize ${
+                            categoryFilter === cat
+                              ? 'bg-indigo-600/40 text-white border border-indigo-500/50 shadow-sm'
+                              : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {cat === 'all' ? 'All Archetypes' : cat}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {isLoadingArchetypes ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {[1, 2, 3].map(i => (
+                      <div key={i} className="p-4 rounded-xl border border-slate-800 bg-slate-950/60 animate-pulse space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="w-8 h-8 rounded-lg bg-slate-800" />
+                          <div className="w-16 h-4 rounded bg-slate-800" />
+                        </div>
+                        <div className="w-3/4 h-3.5 rounded bg-slate-800" />
+                        <div className="w-full h-10 rounded bg-slate-900" />
+                      </div>
                     ))}
                   </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {filteredPresets.map((p) => {
-                    const Icon = p.icon;
-                    const isSelected = selectedPreset === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        onClick={() => setSelectedPreset(p.id)}
-                        className={`p-3.5 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between space-y-2.5 group ${
-                          isSelected
-                            ? 'bg-gradient-to-br from-indigo-950/80 via-slate-900/90 to-blue-950/70 border-indigo-400 text-white ring-1 ring-indigo-400/50 shadow-xl shadow-indigo-950/50'
-                            : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-900'
-                        }`}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <div className={`p-2 rounded-xl border ${isSelected ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-300' : 'bg-slate-800/80 border-slate-700 text-slate-400'}`}>
-                              <Icon className="w-4 h-4" />
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {filteredArchetypes.map((arch) => {
+                      const Icon = getArchetypeIcon(arch.icon_type, arch.id);
+                      const isSelected = selectedArchetypeId === arch.id;
+                      return (
+                        <button
+                          key={arch.id}
+                          type="button"
+                          onClick={() => setSelectedArchetypeId(arch.id)}
+                          className={`p-3.5 rounded-xl border text-left transition-all duration-200 flex flex-col justify-between space-y-2.5 group relative ${
+                            isSelected
+                              ? 'bg-gradient-to-br from-indigo-950/90 via-slate-900/90 to-blue-950/80 border-indigo-400 text-white ring-1 ring-indigo-400/50 shadow-xl shadow-indigo-950/50'
+                              : 'bg-slate-900/80 border-slate-800 text-slate-300 hover:text-white hover:border-slate-700 hover:bg-slate-900'
+                          }`}
+                        >
+                          {arch.recommended && (
+                            <div className="absolute -top-2.5 right-3 px-2 py-0.5 rounded-full bg-gradient-to-r from-cyan-500 to-indigo-600 text-white text-[9px] font-black tracking-wide border border-cyan-300/40 shadow-sm flex items-center gap-1">
+                              <Sparkles className="w-2.5 h-2.5 text-cyan-200" />
+                              <span>AI Recommended</span>
                             </div>
-                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${p.badgeClass}`}>
-                              {p.badge}
-                            </span>
-                          </div>
-                          <h4 className="font-black text-xs text-white group-hover:text-indigo-200 transition-colors">
-                            {p.title}
-                          </h4>
-                          <p className="text-[11px] text-slate-400 leading-snug mt-1">{p.desc}</p>
-                        </div>
+                          )}
 
-                        {isSelected && (
-                          <div className="pt-2 border-t border-indigo-500/20 flex items-center gap-1.5 text-[10px] font-mono font-bold text-cyan-300">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
-                            <span>Active Selection</span>
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <div className={`p-2 rounded-xl border ${isSelected ? 'bg-indigo-500/20 border-indigo-400/40 text-indigo-300' : 'bg-slate-800/80 border-slate-700 text-slate-400'}`}>
+                                <Icon className="w-4 h-4" />
+                              </div>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${arch.badge_class || 'badge-neon-blue'}`}>
+                                {arch.badge}
+                              </span>
+                            </div>
+                            <h4 className="font-black text-xs text-white group-hover:text-indigo-200 transition-colors">
+                              {arch.title}
+                            </h4>
+                            <p className="text-[11px] text-slate-400 leading-snug mt-1">{arch.desc}</p>
                           </div>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+
+                          {isSelected ? (
+                            <div className="pt-2 border-t border-indigo-500/20 flex items-center gap-1.5 text-[10px] font-mono font-bold text-cyan-300">
+                              <CheckCircle2 className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>Active Archetype</span>
+                            </div>
+                          ) : (
+                            <div className="text-[10px] text-slate-500 pt-1">
+                              {arch.charts_planned?.length || 4} charts planned
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
 
               {/* Optional Metric / Column Spotlight Selector */}
@@ -472,7 +586,7 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
                 <div className="relative">
                   <textarea
                     rows={2}
-                    placeholder="e.g. Highlight regional profit margin spreads, identify high-volume transaction outliers, and evaluate 6-month growth velocity..."
+                    placeholder="e.g. Highlight primary drivers, identify statistical outliers exceeding 2x standard deviations, and synthesize forward momentum..."
                     value={customPrompt}
                     onChange={(e) => setCustomPrompt(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-700/90 rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-400/40 shadow-inner resize-none"
@@ -480,52 +594,56 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
                 </div>
 
                 {/* Prompt Suggestions */}
-                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
-                  <span className="text-[10px] text-slate-400 font-semibold mr-1">Quick Prompts:</span>
-                  {SAMPLE_PROMPTS.map((promptItem, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleApplySamplePrompt(promptItem.text)}
-                      className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-cyan-300 transition flex items-center gap-1.5"
-                    >
-                      <span className="text-[9px] text-indigo-400 font-mono font-bold">[{promptItem.cat}]</span>
-                      <span>+ {promptItem.text}</span>
-                    </button>
-                  ))}
-                </div>
+                {dynamicSamplePrompts.length > 0 && (
+                  <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                    <span className="text-[10px] text-slate-400 font-semibold mr-1">Data-Tailored Prompts:</span>
+                    {dynamicSamplePrompts.map((promptItem, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleApplySamplePrompt(promptItem.text)}
+                        className="text-[10px] px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/60 text-slate-300 hover:text-cyan-300 transition flex items-center gap-1.5"
+                      >
+                        <span className="text-[9px] text-indigo-400 font-mono font-bold">[{promptItem.cat}]</span>
+                        <span>+ {promptItem.text}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Synthesis Scope Preview Box */}
-              <div className="p-4 rounded-xl bg-slate-950/80 border border-indigo-500/30 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <h5 className="text-xs font-bold text-white flex items-center gap-2">
-                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
-                    <span>Synthesis Scope Blueprint: {activePresetObj.title}</span>
-                  </h5>
-                  <span className="text-[10px] text-cyan-300 font-mono font-semibold">
-                    {dataset.tables?.length || 1} Table(s) • Ready for Synthesis
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300">
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Planned Visualizations:</span>
-                    <ul className="space-y-0.5 list-disc list-inside text-slate-300">
-                      {activePresetObj.chartsPlanned.map((chartName, i) => (
-                        <li key={i} className="text-[11px] text-slate-300">{chartName}</li>
-                      ))}
-                    </ul>
+              {activeArchetype && (
+                <div className="p-4 rounded-xl bg-slate-950/80 border border-indigo-500/30 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <h5 className="text-xs font-bold text-white flex items-center gap-2">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Synthesis Scope Blueprint: {activeArchetype.title}</span>
+                    </h5>
+                    <span className="text-[10px] text-cyan-300 font-mono font-semibold">
+                      {dataset.tables?.length || 1} Table(s) • Grounded in {activeArchetype.target_table}
+                    </span>
                   </div>
 
-                  <div className="space-y-1">
-                    <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Executive Insights Module:</span>
-                    <p className="text-[11px] text-slate-300">
-                      Synthesizes 4-6 quantitative findings answering driver contribution, risk tails, efficiency margins, and strategic next steps.
-                    </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-300">
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Planned Visualizations:</span>
+                      <ul className="space-y-0.5 list-disc list-inside text-slate-300">
+                        {activeArchetype.charts_planned?.map((chartName, i) => (
+                          <li key={i} className="text-[11px] text-slate-300">{chartName}</li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Data-Backed Business Insights:</span>
+                      <p className="text-[11px] text-slate-300">
+                        Synthesizes quantitative findings addressing driver concentration, efficiency trade-off frontiers, and statistical variance tailored to this dataset.
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
 
               {/* Theme Palette & Sheet Mode Controls */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-slate-800/80">
@@ -604,7 +722,7 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 border-t border-slate-800/80 flex items-center justify-between bg-slate-900/90">
+        <div className="px-6 py-4 border-t border-slate-800/80 flex flex-wrap items-center justify-between gap-3 bg-slate-900/90">
           <button
             type="button"
             onClick={onClose}
@@ -614,16 +732,29 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
             Cancel
           </button>
 
-          <button
-            type="button"
-            onClick={handleGenerate}
-            disabled={isGenerating}
-            className="btn-3d-primary px-5 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] transition-all"
-          >
-            <Sparkles className="w-4 h-4 text-cyan-300" />
-            <span>{isGenerating ? 'Synthesizing Dashboard...' : 'Synthesize AI Dashboard'}</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleGenerateAll}
+              disabled={isGenerating || isLoadingArchetypes}
+              className="px-4 py-2.5 rounded-xl text-purple-200 hover:text-white bg-purple-950/60 hover:bg-purple-900/70 border border-purple-500/40 text-xs font-bold flex items-center gap-2 transition disabled:opacity-50 shadow-md shadow-purple-900/20 hover:scale-[1.02] active:scale-[0.98]"
+              title="Exhaustively generate all possible charts and connect all tables"
+            >
+              <Layers className="w-3.5 h-3.5 text-purple-400" />
+              <span>Generate All Dashboards</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={handleGenerate}
+              disabled={isGenerating || isLoadingArchetypes}
+              className="btn-3d-primary px-5 py-2.5 rounded-xl text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-indigo-600/30 disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98] transition-all"
+            >
+              <Sparkles className="w-4 h-4 text-cyan-300" />
+              <span>{isGenerating ? 'Synthesizing Dashboard...' : 'Synthesize AI Dashboard'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>

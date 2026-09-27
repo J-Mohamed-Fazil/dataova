@@ -59,6 +59,29 @@ def test_forecast_engine(sample_timeseries_df):
         assert pt["bull_scenario"] >= pt["forecast"]
         assert pt["bear_scenario"] <= pt["forecast"]
 
+def test_forecast_engine_custom_bandwidth(sample_timeseries_df):
+    for bw in [5, 10, 20, 30, 50, 80, 95]:
+        res = ForecastEngine.generate_forecast(
+            df=sample_timeseries_df,
+            metric_col="Revenue",
+            date_col="Order_Date",
+            horizon=4,
+            confidence_level=bw
+        )
+        assert res["confidence_level"] == bw
+        for pt in res["forecast"]:
+            assert "upper_bound" in pt
+            assert "lower_bound" in pt
+            assert pt["upper_bound"] >= pt["forecast"]
+            assert pt["lower_bound"] <= pt["forecast"]
+
+    # Verify 5% band is narrower than 95% band
+    res_5 = ForecastEngine.generate_forecast(df=sample_timeseries_df, horizon=4, confidence_level=5)
+    res_95 = ForecastEngine.generate_forecast(df=sample_timeseries_df, horizon=4, confidence_level=95)
+    width_5 = res_5["forecast"][0]["upper_bound"] - res_5["forecast"][0]["lower_bound"]
+    width_95 = res_95["forecast"][0]["upper_bound"] - res_95["forecast"][0]["lower_bound"]
+    assert width_5 < width_95
+
 def test_ml_clustering_engine(sample_clustering_df):
     result = MLClusteringEngine.discover_clusters(
         df=sample_clustering_df,

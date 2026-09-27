@@ -92,3 +92,33 @@ class DashboardSheetCreateSchema(BaseModel):
 class DashboardSheetUpdateSchema(BaseModel):
     title: Optional[str] = None
     order_index: Optional[int] = None
+
+class AIDynamicArchetypeSchema(BaseModel):
+    id: str
+    category: str
+    title: str
+    badge: str
+    badge_class: str
+    desc: str
+    suggested_prompt: str
+    charts_planned: List[str]
+    recommended: bool = False
+    target_table: str
+    x_field: Optional[str] = None
+    y_field: Optional[str] = None
+    secondary_y_field: Optional[str] = None
+    date_field: Optional[str] = None
+    icon_type: Optional[str] = "Sparkles"
+    metrics_spotlight: Optional[List[str]] = []
+    dimensions_spotlight: Optional[List[str]] = []
+
+class AIDiscoveredArchetypesResponseSchema(BaseModel):
+    dataset_id: str
+    dataset_name: str
+    domain: str
+    domain_confidence: float
+    summary: str
+    recommended_archetype_id: str
+    archetypes: List[AIDynamicArchetypeSchema]
+    data_profile: Optional[Dict[str, Any]] = None
+

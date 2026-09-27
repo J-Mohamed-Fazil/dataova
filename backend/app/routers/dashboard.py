@@ -15,7 +15,9 @@ from app.schemas.dashboard import (
     DashboardSheetUpdateSchema,
     DashboardChartSchema,
     DashboardChartCreateSchema,
-    DashboardChartUpdateSchema
+    DashboardChartUpdateSchema,
+    AIDiscoveredArchetypesResponseSchema,
+    AIDynamicArchetypeSchema
 )
 from app.services.file_processor import FileProcessor
 from app.services.cache_manager import DataFrameCache
@@ -72,7 +74,7 @@ class AISynthesizeChartRequest(BaseModel):
 
 class AIGenerateDashboardRequest(BaseModel):
     prompt: Optional[str] = None
-    preset: Optional[str] = "executive"
+    preset: Optional[str] = "auto"
     palette: Optional[str] = "cyberpunk"
     mode: Optional[str] = "add_sheet"
 
@@ -682,11 +684,24 @@ def generate_all_dashboards(dataset_id: str, db: Session = Depends(get_db)):
     )
 
     # 5. Populate calculated chart data
+    tables_map = {t.table_name: t for t in dataset.tables}
+    df_cache: Dict[str, pd.DataFrame] = dict(all_dfs)
+
     for sheet in sheets:
         if sheet.business_questions is None:
             sheet.business_questions = []
         for chart in sheet.charts:
-            chart.data = _calculate_chart_data(chart, db)
+            try:
+                chart.data = _calculate_chart_data(
+                    chart,
+                    db,
+                    dataset_id=dataset_id,
+                    tables_map=tables_map,
+                    df_cache=df_cache
+                )
+            except Exception as e:
+                logger.warning(f"Error computing chart data for {chart.title}: {e}")
+                chart.data = []
 
     return sheets
 
@@ -768,6 +783,51 @@ def ai_generate_dashboard(
 
     return all_sheets
 
+@router.get("/{dataset_id}/ai-discovered-archetypes", response_model=AIDiscoveredArchetypesResponseSchema)
+def get_ai_discovered_archetypes(
+    dataset_id: str,
+    db: Session = Depends(get_db)
+):
+    """
+    Autonomously analyzes dataset schema, column data types, distributions, and domain
+    to synthesize custom, data-native analytical archetypes without any pre-built business templates.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    all_dfs: Dict[str, pd.DataFrame] = {}
+    for tbl in dataset.tables:
+        try:
+            t_df = DataFrameCache.get_table_dataframe(tbl.storage_path, tbl.table_name)
+            if t_df is not None and not t_df.empty:
+                all_dfs[tbl.table_name] = t_df
+        except Exception as e:
+            logger.warning(f"Could not load table {tbl.table_name}: {e}")
+
+    if not all_dfs:
+        raise HTTPException(status_code=400, detail="No table data available")
+
+    rels = db.query(TableRelationship).filter(TableRelationship.dataset_id == dataset_id).all()
+    rel_dicts = [
+        {
+            "source_table": r.source_table,
+            "source_column": r.source_column,
+            "target_table": r.target_table,
+            "target_column": r.target_column,
+            "confidence": r.confidence,
+            "relationship_type": r.relationship_type
+        }
+        for r in rels
+    ]
+
+    return DashboardGenerator.discover_ai_archetypes(
+        all_dataframes=all_dfs,
+        detected_rels=rel_dicts,
+        dataset_name=dataset.name,
+        dataset_id=dataset.id
+    )
+
 @router.post("/{dataset_id}/ai-agent-generate", response_model=List[DashboardSheetSchema])
 def ai_agent_generate_dashboard(
     dataset_id: str,
@@ -779,7 +839,9 @@ def ai_agent_generate_dashboard(
     optimal executive dashboard sheets and charts with ultra-low latency.
     """
     if payload is None:
-        payload = AIGenerateDashboardRequest(preset="executive", palette="cyberpunk", mode="replace_all")
+        payload = AIGenerateDashboardRequest(preset="auto", palette="cyberpunk", mode="replace_all")
+    elif not payload.preset or payload.preset in ["executive", "default"]:
+        payload.preset = "auto"
     elif not payload.mode:
         payload.mode = "replace_all"
     return ai_generate_dashboard(dataset_id=dataset_id, payload=payload, db=db)

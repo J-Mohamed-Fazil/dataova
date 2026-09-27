@@ -131,9 +131,9 @@ class LLMOrchestrator:
             try:
                 gemini_key = getattr(settings, "effective_gemini_key", settings.GEMINI_API_KEY)
                 models_to_try = [
-                    settings.GEMINI_MODEL or "gemini-2.0-flash",
-                    "gemini-2.0-flash",
-                    "gemini-2.5-flash",
+                    settings.GEMINI_MODEL or "gemini-3.1-flash-lite",
+                    "gemini-3.1-flash-lite",
+                    "gemini-3.8-flash",
                     "gemini-flash-latest"
                 ]
                 
@@ -148,12 +148,12 @@ class LLMOrchestrator:
                             "parts": [{"text": f"System: {system_prompt}\n\nUser: {user_prompt}"}]
                         }],
                         "generationConfig": {
-                            "temperature": 0.2,
+                            "temperature": 0.1,
                             "responseMimeType": "application/json" if response_format_json else "text/plain"
                         }
                     }
                     try:
-                        async with httpx.AsyncClient(timeout=3.5) as client:
+                        async with httpx.AsyncClient(timeout=12.0) as client:
                             resp = await client.post(url, json=payload)
                             if resp.status_code == 200:
                                 data = resp.json()
@@ -330,9 +330,9 @@ class LLMOrchestrator:
             try:
                 gemini_key = getattr(settings, "effective_gemini_key", settings.GEMINI_API_KEY)
                 models_to_try = [
-                    settings.GEMINI_MODEL or "gemini-2.0-flash",
-                    "gemini-2.0-flash",
-                    "gemini-2.5-flash",
+                    settings.GEMINI_MODEL or "gemini-3.1-flash-lite",
+                    "gemini-3.1-flash-lite",
+                    "gemini-3.8-flash",
                     "gemini-flash-latest"
                 ]
                 seen = set()
@@ -350,7 +350,7 @@ class LLMOrchestrator:
                         }
                     }
                     try:
-                        with httpx.Client(timeout=3.5) as client:
+                        with httpx.Client(timeout=25.0) as client:
                             resp = client.post(url, json=payload)
                             if resp.status_code == 200:
                                 data = resp.json()

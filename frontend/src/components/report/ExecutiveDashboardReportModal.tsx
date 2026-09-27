@@ -26,7 +26,9 @@ import {
   ChevronLeft,
   ListTodo,
   BarChart3,
-  Compass
+  Compass,
+  Volume2,
+  Square
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { ExecutiveDashboardReportData } from '../../types';
@@ -67,6 +69,144 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
   const page1Ref = useRef<HTMLDivElement>(null);
   const page2Ref = useRef<HTMLDivElement>(null);
   const page3Ref = useRef<HTMLDivElement>(null);
+
+  // Speech Synthesis state
+  const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
+  const speechQueueRef = useRef<string[]>([]);
+  const queueIndexRef = useRef<number>(0);
+  const isSpeakingRef = useRef<boolean>(false);
+
+  const cleanSpeechText = (raw: string): string => {
+    return raw
+      .replace(/\*\*/g, '')
+      .replace(/\[TAG\]/gi, '')
+      .replace(/#/g, '')
+      .replace(/[-*•]\s+/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const splitTextChunks = (text: string): string[] => {
+    const cleaned = cleanSpeechText(text);
+    if (!cleaned) return [];
+    const sentences = cleaned.match(/[^.!?]+[.!?]+|\S+/g) || [cleaned];
+    const chunks: string[] = [];
+    let current = '';
+
+    for (const s of sentences) {
+      const trimmed = s.trim();
+      if (!trimmed) continue;
+      if ((current + ' ' + trimmed).trim().length > 150) {
+        if (current.trim()) chunks.push(current.trim());
+        current = trimmed;
+      } else {
+        current = current ? `${current} ${trimmed}` : trimmed;
+      }
+    }
+    if (current.trim()) chunks.push(current.trim());
+    return chunks;
+  };
+
+  const buildExecutiveSpeechQueue = (data: ExecutiveDashboardReportData): string[] => {
+    const chunks: string[] = [];
+    chunks.push(...splitTextChunks(`Executive Performance Report for ${datasetName || data.dataset_name}.`));
+
+    const summaryText = isPlainLanguage
+      ? (data.human_story_summary || data.plain_summary || data.executive_summary || '')
+      : (data.executive_summary || data.plain_summary || '');
+    if (summaryText) {
+      chunks.push(...splitTextChunks(`Executive Overview. ${summaryText}`));
+    }
+
+    if (data.top_kpis && data.top_kpis.length > 0) {
+      const kpiDescriptions = data.top_kpis
+        .map(k => `${isPlainLanguage && k.plain_title ? k.plain_title : k.title}: ${k.value}, change of ${k.delta}`)
+        .join('. ');
+      chunks.push(...splitTextChunks(`Key Performance Indicators. ${kpiDescriptions}.`));
+    }
+
+    if (data.business_insights && data.business_insights.length > 0) {
+      chunks.push(...splitTextChunks('Strategic Business Insights.'));
+      for (const ins of data.business_insights) {
+        const title = isPlainLanguage && ins.plain_title ? ins.plain_title : ins.title;
+        const detail = isPlainLanguage && ins.plain_detail ? ins.plain_detail : ins.detail;
+        chunks.push(...splitTextChunks(`${title}. ${detail}`));
+      }
+    }
+
+    if (data.action_steps && data.action_steps.length > 0) {
+      chunks.push(...splitTextChunks('Recommended Next Steps.'));
+      for (const act of data.action_steps) {
+        chunks.push(...splitTextChunks(`${act.title}. Target: ${act.due_date}. ${act.description}`));
+      }
+    }
+
+    chunks.push(...splitTextChunks('This concludes the executive briefing.'));
+    return chunks;
+  };
+
+  const stopSpeech = () => {
+    isSpeakingRef.current = false;
+    setIsSpeaking(false);
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const playSpeechChunk = (index: number) => {
+    if (!isSpeakingRef.current) return;
+    if (index >= speechQueueRef.current.length) {
+      stopSpeech();
+      return;
+    }
+    queueIndexRef.current = index;
+    const text = speechQueueRef.current[index];
+
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.rate = 1.0;
+      utterance.pitch = 1.0;
+      const voices = window.speechSynthesis.getVoices() || [];
+      const englishVoice = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Premium'))) || voices.find(v => v.lang.startsWith('en'));
+      if (englishVoice) utterance.voice = englishVoice;
+
+      utterance.onend = () => {
+        if (isSpeakingRef.current) {
+          playSpeechChunk(index + 1);
+        }
+      };
+      utterance.onerror = (e) => {
+        if (e.error === 'interrupted' || e.error === 'canceled') return;
+        if (isSpeakingRef.current) {
+          playSpeechChunk(index + 1);
+        }
+      };
+
+      window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const toggleListen = () => {
+    if (!reportData) return;
+    if (isSpeaking) {
+      stopSpeech();
+    } else {
+      const queue = buildExecutiveSpeechQueue(reportData);
+      if (queue.length === 0) return;
+      speechQueueRef.current = queue;
+      queueIndexRef.current = 0;
+      isSpeakingRef.current = true;
+      setIsSpeaking(true);
+      playSpeechChunk(0);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopSpeech();
+    };
+  }, []);
 
   // Load Executive Template Data
   const loadTemplate = async () => {
@@ -368,6 +508,29 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
 
           {/* Right Action Buttons */}
           <div className="flex items-center gap-2">
+            {/* Listen Button */}
+            <button
+              onClick={toggleListen}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-sm ${
+                isSpeaking
+                  ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
+                  : 'bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] border-indigo-200/60'
+              }`}
+              title={isSpeaking ? 'Stop voice reading' : 'Read executive report aloud clearly from beginning to end'}
+            >
+              {isSpeaking ? (
+                <>
+                  <Square className="w-3.5 h-3.5 fill-current" />
+                  <span>Stop</span>
+                </>
+              ) : (
+                <>
+                  <Volume2 className="w-3.5 h-3.5" />
+                  <span>Listen</span>
+                </>
+              )}
+            </button>
+
             <button
               onClick={() => setIsAiCustomizing(!isAiCustomizing)}
               className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] text-xs font-bold transition flex items-center gap-1.5 border border-indigo-200/60 shadow-sm"

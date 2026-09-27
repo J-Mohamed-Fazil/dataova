@@ -203,3 +203,156 @@ def test_all_presets_generate_distinct_charts(retail_dataset):
     assert "area" in preset_charts["predictive_momentum"]["chart_types"]
     assert "composed" in preset_charts["revenue_growth"]["chart_types"]
 
+
+def test_discover_ai_archetypes_clinical_healthcare():
+    """Verify that clinical healthcare data generates domain-native archetypes and not pre-built business ones."""
+    healthcare_df = pd.DataFrame({
+        "patient_id": [f"P_{i}" for i in range(100)],
+        "diagnosis": ["Cardiology", "Neurology", "Orthopedics", "Oncology"] * 25,
+        "department": ["Emergency", "Inpatient", "Surgery", "ICU"] * 25,
+        "length_of_stay": [3.2, 5.1, 7.8, 2.4] * 25,
+        "readmission_rate": [0.08, 0.14, 0.05, 0.22] * 25,
+        "treatment_cost": [4500, 8900, 12000, 3100] * 25,
+        "admission_date": pd.date_range("2024-01-01", periods=100, freq="D").strftime("%Y-%m-%d")
+    })
+
+    result = DashboardGenerator.discover_ai_archetypes(
+        all_dataframes={"clinical_admissions": healthcare_df},
+        dataset_name="Hospital Admissions",
+        dataset_id="ds-health-1"
+    )
+
+    assert "Healthcare" in result["domain"]
+    archetypes = result["archetypes"]
+    assert len(archetypes) >= 4
+
+    # Top recommended archetype should reference the actual columns
+    rec = next(a for a in archetypes if a["recommended"])
+    assert "Length Of Stay" in rec["title"] or "Treatment Cost" in rec["title"]
+    assert "Diagnosis" in rec["title"] or "Department" in rec["title"]
+    assert any("Readmission Rate" in chart or "Length Of Stay" in chart for chart in rec["charts_planned"])
+
+    # Ensure no generic hardcoded "Executive Pulse" appears in the dynamic titles
+    for arch in archetypes:
+        assert "Executive Pulse" not in arch["title"]
+        assert "Revenue, Margin & Growth" not in arch["title"]
+
+
+def test_discover_ai_archetypes_workforce_hr():
+    """Verify that HR data generates workforce-native archetypes."""
+    hr_df = pd.DataFrame({
+        "emp_id": [f"E_{i}" for i in range(80)],
+        "department": ["Engineering", "Product", "Sales", "People"] * 20,
+        "salary": [120000, 110000, 95000, 85000] * 20,
+        "performance_score": [4.2, 3.8, 4.5, 3.9] * 20,
+        "tenure_years": [3.5, 2.1, 5.0, 1.2] * 20,
+        "attrition_risk": [0.05, 0.12, 0.02, 0.18] * 20
+    })
+
+    result = DashboardGenerator.discover_ai_archetypes(
+        all_dataframes={"workforce": hr_df},
+        dataset_name="People Analytics",
+        dataset_id="ds-hr-1"
+    )
+
+    assert "Workforce" in result["domain"]
+    titles = [a["title"] for a in result["archetypes"]]
+    assert any("Salary" in t for t in titles)
+    assert any("Department" in t for t in titles)
+
+
+def test_auto_preset_dynamic_synthesis(retail_dataset):
+    """Verify that preset='auto' generates a dynamic archetype sheet grounded in real columns."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.database import Base
+    from app.models import Dataset
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    ds = Dataset(id="ds-auto-test", name="Retail Test Dataset")
+    db.add(ds)
+    db.commit()
+
+    dfs = {"orders": retail_dataset}
+    sheets = DashboardGenerator.generate_ai_themed_dashboard(
+        dataset_id="ds-auto-test",
+        all_dataframes=dfs,
+        detected_rels=[],
+        db=db,
+        preset="auto",
+        mode="replace_all"
+    )
+    assert len(sheets) == 1
+    sheet = sheets[0]
+    assert sheet.title.startswith("AI Agent:") or sheet.title.startswith("AI Archetype:")
+    assert any(term in sheet.title for term in ["Commerce", "Sales", "Revenue", "Profitability", "Scale", "Driver"])
+    assert len(sheet.charts) >= 3
+    assert sheet.business_questions and len(sheet.business_questions) >= 1
+    first_q = sheet.business_questions[0]
+    assert "question" in first_q
+    assert len(first_q.get("metric", "")) > 0
+
+
+def test_generate_all_preset_and_prompt_synthesis(retail_dataset):
+    """Verify that preset='all' or 'all dashboards' prompt synthesizes all possible charts across all tables."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.database import Base
+    from app.models import Dataset
+
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine)
+    db = Session()
+
+    ds = Dataset(id="ds-all-test", name="Multi-Table Retail")
+    db.add(ds)
+    db.commit()
+
+    customers_df = pd.DataFrame({
+        "customer_id": [f"CUST_{i:03d}" for i in range(1, 21)],
+        "segment": ["Enterprise", "SMB", "Consumer", "Strategic"] * 5,
+        "region": ["North America", "EMEA", "APAC", "LATAM"] * 5,
+        "credit_score": [720, 680, 790, 810] * 5
+    })
+
+    dfs = {
+        "orders": retail_dataset,
+        "customers": customers_df
+    }
+    rels = [{
+        "source_table": "orders",
+        "source_column": "customer_id",
+        "target_table": "customers",
+        "target_column": "customer_id",
+        "confidence": 0.95,
+        "relationship_type": "many_to_one"
+    }]
+
+    # Test preset="all"
+    sheets = DashboardGenerator.generate_ai_themed_dashboard(
+        dataset_id="ds-all-test",
+        all_dataframes=dfs,
+        detected_rels=rels,
+        db=db,
+        preset="all",
+        mode="replace_all"
+    )
+
+    # Should create cross-table unified intelligence sheet PLUS individual table sheets
+    assert len(sheets) >= 2
+    sheet_titles = [s.title for s in sheets]
+    assert any("Cross-Table" in t or "Connected" in t for t in sheet_titles)
+    assert any("orders" in t.lower() for t in sheet_titles)
+    assert any("customers" in t.lower() for t in sheet_titles)
+
+    total_charts = sum(len(s.charts) for s in sheets)
+    assert total_charts >= 8, f"Expected exhaustive chart synthesis, got {total_charts}"
+
+
+
+

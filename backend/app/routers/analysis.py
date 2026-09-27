@@ -5,7 +5,7 @@ from pydantic import BaseModel
 import pandas as pd
 
 from app.database import get_db
-from app.models import Dataset, KpiMetric, Insight, AnomalyRecord, TableMetadata
+from app.models import Dataset, KpiMetric, Insight, AnomalyRecord, TableMetadata, TableRelationship
 from app.schemas.analysis import (
     AnalysisOverviewSchema,
     KpiMetricSchema,
@@ -34,9 +34,12 @@ class SqlQueryRequest(BaseModel):
     query: str
     table_name: Optional[str] = None
     max_rows: int = 200
+    question: Optional[str] = None
+    prompt: Optional[str] = None
 
 class SqlTranslateRequest(BaseModel):
-    prompt: str
+    prompt: Optional[str] = None
+    question: Optional[str] = None
     table_name: Optional[str] = None
 
 class ScenarioSimulateRequest(BaseModel):
@@ -294,6 +297,7 @@ def get_predictive_forecast(
     metric: Optional[str] = Query(None),
     date_col: Optional[str] = Query(None),
     horizon: int = Query(6, ge=1, le=36),
+    confidence_level: float = Query(95.0, ge=5.0, le=99.0),
     table_name: Optional[str] = Query(None),
     db: Session = Depends(get_db)
 ):
@@ -327,7 +331,8 @@ def get_predictive_forecast(
         df=df,
         metric_col=metric,
         date_col=date_col,
-        horizon=horizon
+        horizon=horizon,
+        confidence_level=confidence_level
     )
 
     if "error" in result:
@@ -425,7 +430,8 @@ def execute_sandbox_sql(
     result = SQLEngine.execute_sql(
         dataframes=dataframes,
         sql_query=payload.query,
-        max_rows=payload.max_rows
+        max_rows=payload.max_rows,
+        question=payload.question or payload.prompt
     )
 
     if "error" in result:
@@ -434,7 +440,7 @@ def execute_sandbox_sql(
     return result
 
 @router.post("/{dataset_id}/sql/translate")
-def translate_nl_to_sql(
+async def translate_nl_to_sql(
     dataset_id: str,
     payload: SqlTranslateRequest,
     db: Session = Depends(get_db)
@@ -450,15 +456,34 @@ def translate_nl_to_sql(
         if found:
             target_table = found
 
-    dfs = FileProcessor.read_file_to_dataframes(target_table.storage_path)
-    df = dfs.get(target_table.table_name)
-    if df is None and dfs:
-        df = list(dfs.values())[0]
+    dataframes: Dict[str, pd.DataFrame] = {}
+    for t in tables:
+        dfs = FileProcessor.read_file_to_dataframes(t.storage_path)
+        if t.table_name in dfs:
+            dataframes[t.table_name] = dfs[t.table_name]
+        elif dfs:
+            dataframes[t.table_name] = list(dfs.values())[0]
+
+    df = dataframes.get(target_table.table_name)
+    if df is None and dataframes:
+        df = list(dataframes.values())[0]
 
     if df is None or df.empty:
         raise HTTPException(status_code=400, detail="Table is empty")
 
-    return SQLEngine.generate_sql_from_nl(df, payload.prompt, table_name=target_table.table_name)
+    prompt_text = (payload.prompt or payload.question or "").strip()
+    if not prompt_text:
+        raise HTTPException(status_code=400, detail="No prompt or question provided")
+
+    relationships = db.query(TableRelationship).filter(TableRelationship.dataset_id == dataset_id).all()
+
+    return await SQLEngine.generate_sql_from_nl_async(
+        df=df,
+        nl_prompt=prompt_text,
+        table_name=target_table.table_name,
+        all_dfs=dataframes,
+        relationships=relationships
+    )
 
 # -------------------------------------------------------------
 # 1. EXECUTIVE AUDIO BRIEFING ("PODCAST")

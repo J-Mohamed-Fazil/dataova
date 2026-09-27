@@ -27,7 +27,16 @@ import {
   Info,
   Presentation,
   Volume2,
-  VolumeX
+  VolumeX,
+  Play,
+  Pause,
+  Square,
+  SkipForward,
+  SkipBack,
+  Compass,
+  CheckCircle2,
+  Clock,
+  ArrowUpRight
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -73,7 +82,7 @@ const PALETTES = [
 const renderFormattedText = (text: string): React.ReactNode => {
   if (!text) return null;
   const parts: React.ReactNode[] = [];
-  const tokenRegex = /(\[[A-Z0-9_]+\]|\*\*.*?\*\*|\*.*?\*|_.*?_)/g;
+  const tokenRegex = /(\[[A-Z0-9_\s]+\]|\*\*.*?\*\*|\*\((?:Why It Matters|Strategic Impact|Takeaway|Action Directive):.*?\)\*|\*.*?\*|_.*?_)/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null;
 
@@ -83,21 +92,50 @@ const renderFormattedText = (text: string): React.ReactNode => {
     }
     const token = match[0];
     if (token.startsWith('[') && token.endsWith(']')) {
-      const tagContent = token.slice(1, -1);
+      const tagContent = token.slice(1, -1).trim();
       const isHigh = tagContent === 'HIGH' || tagContent === 'CRITICAL';
       const isFact = tagContent === 'FACT' || tagContent === 'CALCULATION';
+      const isMedium = tagContent === 'MEDIUM';
+
+      const labelMap: Record<string, string> = {
+        'CALCULATION': 'Calculated Metric',
+        'FACT': 'Verified Data',
+        'HIGH': 'High Priority',
+        'CRITICAL': 'Critical Notice',
+        'MEDIUM': 'Moderate',
+        'LOW': 'Info'
+      };
+      const displayLabel = labelMap[tagContent] || tagContent;
+
       const badgeClasses = isHigh
-        ? 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+        ? 'bg-rose-500/15 text-rose-300 border-rose-500/30'
         : isFact
-        ? 'bg-brand-500/15 text-brand-300 border-brand-500/30'
-        : 'bg-amber-500/15 text-amber-400 border-amber-500/30';
+        ? 'bg-cyan-500/15 text-cyan-300 border-cyan-500/30'
+        : isMedium
+        ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+        : 'bg-slate-700/50 text-slate-300 border-slate-600/40';
 
       parts.push(
         <span
           key={match.index}
           className={`inline-flex items-center px-1.5 py-0.5 mx-1 rounded text-[10px] font-bold tracking-wider uppercase border ${badgeClasses}`}
         >
-          {tagContent}
+          {displayLabel}
+        </span>
+      );
+    } else if (token.startsWith('*(') && token.endsWith(')*')) {
+      const calloutContent = token.slice(2, -2);
+      const isDirective = calloutContent.startsWith('Action Directive:');
+      parts.push(
+        <span
+          key={match.index}
+          className={`inline-flex items-center gap-1 px-2 py-0.5 my-0.5 rounded text-[11px] font-medium border ${
+            isDirective
+              ? 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30'
+              : 'bg-amber-500/10 text-amber-300 border-amber-500/25'
+          }`}
+        >
+          {calloutContent}
         </span>
       );
     } else if (token.startsWith('**') && token.endsWith('**')) {
@@ -129,18 +167,18 @@ const FormattedContent: React.FC<{ content: string }> = ({ content }) => {
   const paragraphs = content.split('\n\n');
 
   return (
-    <div className="space-y-3 text-xs leading-relaxed text-slate-300 font-sans">
+    <div className="space-y-3.5 text-xs leading-relaxed text-slate-300 font-sans">
       {paragraphs.map((p, pIdx) => {
         const lines = p.split('\n').filter((l) => l.trim().length > 0);
         return (
-          <div key={pIdx} className="space-y-1.5">
+          <div key={pIdx} className="space-y-2">
             {lines.map((line, lIdx) => {
               const trimmed = line.trim();
               if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
                 const bulletText = trimmed.replace(/^[•\-]\s*/, '');
                 return (
-                  <div key={lIdx} className="flex items-start gap-2.5 my-1 text-slate-300 pl-0.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-brand-400 flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(99,102,241,0.5)]" />
+                  <div key={lIdx} className="flex items-start gap-2.5 my-1.5 text-slate-300 pl-1 p-2 rounded-lg bg-slate-900/30 border border-slate-800/40 hover:border-slate-700/60 transition">
+                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
                     <div className="flex-1 leading-relaxed">
                       {renderFormattedText(bulletText)}
                     </div>
@@ -153,8 +191,8 @@ const FormattedContent: React.FC<{ content: string }> = ({ content }) => {
                 const num = numMatch[1];
                 const rest = numMatch[2];
                 return (
-                  <div key={lIdx} className="flex items-start gap-3 my-1.5 pl-0.5">
-                    <span className="w-5 h-5 rounded-full bg-brand-500/20 border border-brand-500/40 text-brand-300 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div key={lIdx} className="flex items-start gap-3 my-2 p-2.5 rounded-xl bg-slate-900/50 border border-slate-800/70 hover:border-cyan-500/30 transition">
+                    <span className="w-5 h-5 rounded-full bg-cyan-500/20 border border-cyan-500/40 text-cyan-300 font-bold text-[11px] flex items-center justify-center flex-shrink-0 mt-0.5">
                       {num}
                     </span>
                     <div className="flex-1 leading-relaxed text-slate-200">
@@ -165,7 +203,7 @@ const FormattedContent: React.FC<{ content: string }> = ({ content }) => {
               }
 
               return (
-                <p key={lIdx} className="leading-relaxed">
+                <p key={lIdx} className="leading-relaxed text-slate-300">
                   {renderFormattedText(trimmed)}
                 </p>
               );
@@ -508,17 +546,17 @@ const getSectionIcon = (type: string) => {
 const getSectionBadge = (type: string) => {
   switch (type) {
     case 'executive_summary':
-      return 'Briefing';
+      return 'Overview';
     case 'dataset_overview':
-      return 'Data Extract';
+      return 'Sample Data';
     case 'key_metrics':
-      return 'KPI Matrix';
+      return 'Key Metrics';
     case 'segment_analysis':
-      return 'Distribution';
+      return 'Breakdown';
     case 'trend_analysis':
-      return 'Parametric';
+      return 'Trends & Spreads';
     case 'data_quality':
-      return 'Hygiene';
+      return 'Data Health';
     case 'anomalies':
       return 'Outliers';
     case 'recommendations':
@@ -529,6 +567,98 @@ const getSectionBadge = (type: string) => {
       return 'Analysis';
   }
 };
+
+// Plain English Comprehensive Explanation for Section Headers
+const getSectionShortExplanation = (type: string, title?: string): string => {
+  switch (type) {
+    case 'executive_summary':
+      return 'This executive summary provides leadership with a clear view of overall operational performance, headline numbers, and verified data health across all observed records.';
+    case 'dataset_overview':
+      return 'This section provides a representative sample of individual records from your source tables, allowing you to verify primary fields, formatting, and granular transactional entries.';
+    case 'key_metrics':
+      return 'These core operational benchmarks measure total volume, transaction pacing, and baseline figures calculated directly from your records to evaluate performance against targets.';
+    case 'segment_analysis':
+      return 'This section groups your metrics across primary categories and channels, identifying top-performing areas that drive the majority of activity and highlighting opportunities for growth.';
+    case 'trend_analysis':
+      return title?.toLowerCase().includes('time') || title?.toLowerCase().includes('trend')
+        ? 'This longitudinal timeline evaluates performance pacing across sequential dates, helping teams identify seasonal demand cycles, peak operating periods, and growth momentum.'
+        : 'This parametric overview examines average values, median midpoints, and the spread between minimum and maximum figures to measure the consistency of your operations.';
+    case 'insights':
+      return 'These empirical findings highlight notable trends, correlations, and strategic takeaways detected across your data, paired with practical business context and operational relevance.';
+    case 'data_quality':
+      return 'This comprehensive health audit checks data completeness, missing fields, duplicate rows, and statistical outliers to confirm your numbers are dependable for strategic decisions.';
+    case 'recommendations':
+      return 'These prioritized action items outline practical next steps based on the empirical findings, designed to help leadership reinforce operational momentum and optimize resources.';
+    case 'ai_deepen':
+      return 'This advanced strategic deep-dive evaluates forward-looking predictive scenarios, risk hedging factors, and high-impact operational directives synthesized by AI.';
+    default:
+      return 'This section provides detailed analytical findings and structured observations to support informed operational decision-making.';
+  }
+};
+
+// Helper: Clean raw markdown text for natural, human-like voice synthesis
+const cleanTextForSpeech = (raw: string): string => {
+  if (!raw) return '';
+  return raw
+    .replace(/\[CALCULATION\]/gi, 'Calculated metric: ')
+    .replace(/\[FACT\]/gi, 'Key fact: ')
+    .replace(/\[HIGH\]/gi, 'High priority: ')
+    .replace(/\[CRITICAL\]/gi, 'Critical notice: ')
+    .replace(/\[MEDIUM\]/gi, 'Moderate note: ')
+    .replace(/\[LOW\]/gi, 'Informational: ')
+    .replace(/\[[A-Z0-9_\s]+\]/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/_([^_]+)_/g, '$1')
+    .replace(/#+\s+/g, '')
+    .replace(/^[•\-\*]\s+/gm, '')
+    .replace(/\n+/g, ' ')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+};
+
+// Helper: Split text into natural sentence chunks to eliminate Chromium 15s pause/timeout bug
+const splitIntoSpeechChunks = (text: string, maxLen: number = 160): string[] => {
+  if (!text) return [];
+  const sentences = text.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) || [text];
+  const chunks: string[] = [];
+  let current = '';
+
+  for (const s of sentences) {
+    const trimmed = s.trim();
+    if (!trimmed) continue;
+    if ((current + ' ' + trimmed).length <= maxLen) {
+      current = current ? `${current} ${trimmed}` : trimmed;
+    } else {
+      if (current) chunks.push(current);
+      if (trimmed.length > maxLen) {
+        const parts = trimmed.split(/,\s*/);
+        let sub = '';
+        for (const p of parts) {
+          if ((sub + ', ' + p).length <= maxLen) {
+            sub = sub ? `${sub}, ${p}` : p;
+          } else {
+            if (sub) chunks.push(sub);
+            sub = p;
+          }
+        }
+        if (sub) chunks.push(sub);
+        current = '';
+      } else {
+        current = trimmed;
+      }
+    }
+  }
+  if (current) chunks.push(current);
+  return chunks;
+};
+
+interface AudioSpeechChunk {
+  id: string;
+  sectionId?: string;
+  sectionTitle: string;
+  text: string;
+}
 
 export const ReportView: React.FC = () => {
   const { currentDataset } = useWorkspace();
@@ -546,8 +676,21 @@ export const ReportView: React.FC = () => {
   const [isDeepening, setIsDeepening] = useState<boolean>(false);
   const [isDeckOpen, setIsDeckOpen] = useState<boolean>(false);
   const [isExecutiveReportOpen, setIsExecutiveReportOpen] = useState<boolean>(false);
+
+  // Sequential Full Report Audio Speech State
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
+  const [isPausedAudio, setIsPausedAudio] = useState<boolean>(false);
+  const [audioSpeed, setAudioSpeed] = useState<number>(1.0);
+  const [speechQueue, setSpeechQueue] = useState<AudioSpeechChunk[]>([]);
+  const [currentChunkIndex, setCurrentChunkIndex] = useState<number>(0);
+  const [activeSpeakingSectionId, setActiveSpeakingSectionId] = useState<string | null>(null);
+
   const audioHeartbeatRef = useRef<any>(null);
+  const audioSpeedRef = useRef<number>(1.0);
+  const speechQueueRef = useRef<AudioSpeechChunk[]>([]);
+  const currentChunkIndexRef = useRef<number>(0);
+  const isPlayingAudioRef = useRef<boolean>(false);
+  const isPausedAudioRef = useRef<boolean>(false);
 
   const stopAudioHeartbeat = () => {
     if (audioHeartbeatRef.current) {
@@ -565,8 +708,12 @@ export const ReportView: React.FC = () => {
           window.speechSynthesis.resume();
         }
       }
-    }, 8000);
+    }, 7000);
   };
+
+  useEffect(() => {
+    audioSpeedRef.current = audioSpeed;
+  }, [audioSpeed]);
 
   useEffect(() => {
     return () => {
@@ -600,42 +747,142 @@ export const ReportView: React.FC = () => {
     } catch (e) {}
   };
 
-  const toggleAudioBriefing = () => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
-      alert('Web Speech API is not supported in this browser.');
-      return;
+  // Top KPIs for Ribbon
+  const ribbonKpis = analysis?.kpis || [];
+  const primaryKpis = ribbonKpis.slice(0, 4);
+
+  // Top Insights for Executive Dossier
+  const topInsights = analysis?.insights?.slice(0, 4) || [];
+
+  // Build complete sequential speech queue covering the entire report
+  const buildFullReportSpeechQueue = (): AudioSpeechChunk[] => {
+    if (!report) return [];
+    const queue: AudioSpeechChunk[] = [];
+    let chunkIdCounter = 0;
+
+    const addChunks = (sectionId: string, sectionTitle: string, fullText: string) => {
+      const parts = splitIntoSpeechChunks(cleanTextForSpeech(fullText));
+      for (const p of parts) {
+        if (p.trim().length > 0) {
+          queue.push({
+            id: `chunk-${chunkIdCounter++}`,
+            sectionId,
+            sectionTitle,
+            text: p.trim()
+          });
+        }
+      }
+    };
+
+    // 1. Report Title and Executive Overview
+    const introText = `Welcome to the DataNova Executive Business Report for ${currentDataset?.name || 'your dataset'}. ` +
+      `Report Title: ${report.title}. ` +
+      (report.subtitle ? `${report.subtitle}. ` : '') +
+      `Executive Summary: ${report.summary || 'Comprehensive data analysis completed.'}. ` +
+      `This report analyzes ${currentDataset?.row_count?.toLocaleString() || 'all'} records across ${currentDataset?.column_count || 'primary'} columns with an overall Data Health Score of ${currentDataset?.data_health_score || 100} out of 100.`;
+    addChunks('report-header', 'Introduction & Overview', introText);
+
+    // 2. Key Performance Indicators
+    if (primaryKpis.length > 0) {
+      const kpiText = `Key Performance Indicators. ` +
+        primaryKpis.map(k => `${k.display_name}: ${k.formatted_value}. Calculated from ${k.source_table || 'dataset'} ${k.source_column || ''}.`).join(' ');
+      addChunks('report-kpis', 'Key Performance Indicators', kpiText);
     }
 
-    if (isPlayingAudio) {
+    // 3. Strategic Insights & Findings
+    if (topInsights.length > 0) {
+      const insText = `Executive Key Strategic Insights. ` +
+        topInsights.map((ins, iIdx) => {
+          const title = ins.title;
+          const desc = ins.description;
+          const rec = ins.recommendation ? `Action directive: ${ins.recommendation}.` : '';
+          return `Insight number ${iIdx + 1}: ${title}. ${desc}. ${rec}`;
+        }).join(' ');
+      addChunks('report-insights', 'Strategic Insights', insText);
+    }
+
+    // 4. Dynamic Sections in Order
+    if (report.sections && report.sections.length > 0) {
+      report.sections.forEach((sec, sIdx) => {
+        const secNum = sIdx + 1;
+        const shortExpl = getSectionShortExplanation(sec.section_type, sec.title);
+        let secNarrative = `Section ${secNum}: ${sec.title}. Summary: ${shortExpl}. ${sec.content}. `;
+
+        if (sec.charts_included && sec.charts_included.length > 0) {
+          const chartSummaries = sec.charts_included.map(ch => {
+            const h = ch.metric_highlight ? `Highlighted metric: ${ch.metric_highlight}. ` : '';
+            const inHeadline = ch.insight?.headline ? `Key chart takeaway: ${ch.insight.headline}. ` : '';
+            return `Visual chart included: ${ch.title}. ${h}${inHeadline}`;
+          }).join(' ');
+          secNarrative += chartSummaries + ' ';
+        }
+
+        if (sec.tables_included && sec.tables_included.length > 0) {
+          const tableSummaries = sec.tables_included.map(tb => {
+            const rowCount = tb.rows ? tb.rows.length : 0;
+            return `Structured data table included: ${tb.title || 'Summary table'}, showing ${rowCount} operational rows.`;
+          }).join(' ');
+          secNarrative += tableSummaries + ' ';
+        }
+
+        addChunks(`section-${sec.id}`, `Section ${secNum}: ${sec.title}`, secNarrative);
+      });
+    }
+
+    // 5. Final Conclusion
+    const conclusionText = `You have completed the entire business report briefing. All sections, metrics, dashboard visualizations, and recommendations have been read aloud. Thank you for listening.`;
+    addChunks('report-footer', 'Report Conclusion', conclusionText);
+
+    return queue;
+  };
+
+  // Speak a specific chunk index sequentially
+  const speakChunk = (index: number) => {
+    const queue = speechQueueRef.current;
+    if (!queue || index < 0 || index >= queue.length) {
+      // Completed reading the entire report!
       stopAudioHeartbeat();
-      try {
-        window.speechSynthesis.cancel();
-      } catch (e) {}
-      (window as any).__datovaSpeechUtterance = null;
       setIsPlayingAudio(false);
+      setIsPausedAudio(false);
+      isPlayingAudioRef.current = false;
+      isPausedAudioRef.current = false;
+      setActiveSpeakingSectionId(null);
+      setCurrentChunkIndex(0);
+      currentChunkIndexRef.current = 0;
+      playChimeTone();
       return;
     }
 
-    playChimeTone();
+    currentChunkIndexRef.current = index;
+    setCurrentChunkIndex(index);
+    const chunk = queue[index];
+    setActiveSpeakingSectionId(chunk.sectionId || null);
 
-    const domainText = currentDataset ? `Analysis for ${currentDataset.detected_domain} dataset.` : '';
-    const summaryText = report?.summary || 'Executive data analysis completed.';
-    const kpiSummary = analysis?.kpis?.slice(0, 3).map(k => `${k.display_name}: ${k.formatted_value}.`).join(' ') || '';
-    const script = `DataNova Executive Briefing. ${domainText} ${summaryText} Key indicators: ${kpiSummary}`;
+    // Smoothly scroll to current section if needed
+    if (chunk.sectionId) {
+      const el = document.getElementById(chunk.sectionId);
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    }
 
     try {
       window.speechSynthesis.cancel();
       window.speechSynthesis.resume();
 
-      const utterance = new SpeechSynthesisUtterance(script);
+      const utterance = new SpeechSynthesisUtterance(chunk.text);
       (window as any).__datovaSpeechUtterance = utterance;
 
-      utterance.rate = 0.95;
+      utterance.rate = audioSpeedRef.current;
       utterance.pitch = 1.0;
       utterance.volume = 1.0;
 
       const voices = window.speechSynthesis.getVoices() || [];
-      const englishVoice = voices.find(v => v.lang.startsWith('en')) || voices[0];
+      const englishVoice =
+        voices.find(v => v.lang.startsWith('en') && (v.name.includes('Natural') || v.name.includes('Google') || v.name.includes('Samantha') || v.name.includes('Daniel') || v.name.includes('Jenny') || v.name.includes('Guy'))) ||
+        voices.find(v => v.lang.startsWith('en')) ||
+        voices[0];
+
       if (englishVoice) {
         utterance.voice = englishVoice;
         utterance.lang = englishVoice.lang;
@@ -645,29 +892,143 @@ export const ReportView: React.FC = () => {
 
       utterance.onstart = () => {
         setIsPlayingAudio(true);
+        setIsPausedAudio(false);
+        isPlayingAudioRef.current = true;
+        isPausedAudioRef.current = false;
         startAudioHeartbeat();
       };
 
       utterance.onend = () => {
-        (window as any).__datovaSpeechUtterance = null;
-        stopAudioHeartbeat();
-        setIsPlayingAudio(false);
+        if (isPlayingAudioRef.current && !isPausedAudioRef.current) {
+          speakChunk(index + 1);
+        }
       };
 
       utterance.onerror = (e) => {
-        (window as any).__datovaSpeechUtterance = null;
-        stopAudioHeartbeat();
-        setIsPlayingAudio(false);
-        if (e.error !== 'canceled' && e.error !== 'interrupted') {
-          console.warn('Speech synthesis notice:', e.error);
+        if (e.error === 'canceled' || e.error === 'interrupted') {
+          return;
+        }
+        console.warn('Speech chunk notice:', e.error);
+        if (isPlayingAudioRef.current && !isPausedAudioRef.current) {
+          speakChunk(index + 1);
         }
       };
 
       window.speechSynthesis.speak(utterance);
     } catch (err) {
-      console.error('Failed to trigger speech synthesis:', err);
+      console.error('Failed to trigger speech chunk:', err);
       setIsPlayingAudio(false);
+      setIsPausedAudio(false);
+      isPlayingAudioRef.current = false;
+      isPausedAudioRef.current = false;
       stopAudioHeartbeat();
+    }
+  };
+
+  // Start reading the report from the beginning
+  const startAudioBriefing = () => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      alert('Web Speech API is not supported in this browser.');
+      return;
+    }
+
+    const queue = buildFullReportSpeechQueue();
+    if (queue.length === 0) {
+      alert('No report content available to read.');
+      return;
+    }
+
+    speechQueueRef.current = queue;
+    setSpeechQueue(queue);
+    playChimeTone();
+    speakChunk(0);
+  };
+
+  // Toggle Play / Pause / Resume
+  const toggleAudioBriefing = () => {
+    if (!isPlayingAudio) {
+      startAudioBriefing();
+    } else if (isPausedAudio) {
+      // Resume
+      setIsPausedAudio(false);
+      isPausedAudioRef.current = false;
+      try {
+        window.speechSynthesis.resume();
+      } catch (e) {}
+      if (!window.speechSynthesis.speaking) {
+        speakChunk(currentChunkIndexRef.current);
+      }
+    } else {
+      // Pause
+      setIsPausedAudio(true);
+      isPausedAudioRef.current = true;
+      try {
+        window.speechSynthesis.pause();
+      } catch (e) {}
+    }
+  };
+
+  // Stop reading and reset
+  const stopAudioBriefing = () => {
+    stopAudioHeartbeat();
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+    (window as any).__datovaSpeechUtterance = null;
+    setIsPlayingAudio(false);
+    setIsPausedAudio(false);
+    isPlayingAudioRef.current = false;
+    isPausedAudioRef.current = false;
+    setActiveSpeakingSectionId(null);
+    setCurrentChunkIndex(0);
+    currentChunkIndexRef.current = 0;
+  };
+
+  // Skip to next section
+  const handleNextSectionAudio = () => {
+    const queue = speechQueueRef.current;
+    if (!queue.length) return;
+    const currentChunk = queue[currentChunkIndexRef.current];
+    const curSecId = currentChunk?.sectionId;
+    const nextIdx = queue.findIndex((c, i) => i > currentChunkIndexRef.current && c.sectionId !== curSecId);
+    if (nextIdx !== -1) {
+      speakChunk(nextIdx);
+    } else {
+      speakChunk(queue.length - 1);
+    }
+  };
+
+  // Skip to previous section
+  const handlePrevSectionAudio = () => {
+    const queue = speechQueueRef.current;
+    if (!queue.length) return;
+    const currentChunk = queue[currentChunkIndexRef.current];
+    const curSecId = currentChunk?.sectionId;
+    let prevSecLastIdx = -1;
+    for (let i = currentChunkIndexRef.current - 1; i >= 0; i--) {
+      if (queue[i].sectionId !== curSecId) {
+        prevSecLastIdx = i;
+        break;
+      }
+    }
+    if (prevSecLastIdx !== -1) {
+      const prevSecId = queue[prevSecLastIdx].sectionId;
+      const prevSecStartIdx = queue.findIndex(c => c.sectionId === prevSecId);
+      speakChunk(prevSecStartIdx !== -1 ? prevSecStartIdx : prevSecLastIdx);
+    } else {
+      speakChunk(0);
+    }
+  };
+
+  // Cycle playback speed
+  const handleCycleSpeed = () => {
+    const speeds = [1.0, 1.25, 1.5, 0.85];
+    const curIdx = speeds.indexOf(audioSpeed);
+    const nextSpeed = speeds[(curIdx + 1) % speeds.length];
+    setAudioSpeed(nextSpeed);
+    audioSpeedRef.current = nextSpeed;
+    if (isPlayingAudio && !isPausedAudio) {
+      speakChunk(currentChunkIndexRef.current);
     }
   };
 
@@ -787,13 +1148,6 @@ export const ReportView: React.FC = () => {
     window.open(api.getReportExcelUrl(currentDataset.id), '_blank');
   };
 
-  // Top KPIs for Ribbon
-  const ribbonKpis = analysis?.kpis || [];
-  const primaryKpis = ribbonKpis.slice(0, 4);
-
-  // Top Insights for Executive Dossier
-  const topInsights = analysis?.insights?.slice(0, 4) || [];
-
   return (
     <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6 lg:p-8 pb-24 md:pb-28 space-y-5 sm:space-y-6 bg-transparent max-w-7xl mx-auto w-full">
       {/* Top Action Bar */}
@@ -881,19 +1235,52 @@ export const ReportView: React.FC = () => {
             <span>Add Section</span>
           </button>
 
-          {/* Audio Briefing Button */}
+          {/* Audio Reading (Listen) Button */}
           <button
             onClick={toggleAudioBriefing}
             className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
               isPlayingAudio
-                ? 'btn-3d-danger animate-pulse'
+                ? isPausedAudio
+                  ? 'btn-3d-secondary border-amber-500/50 text-amber-300 hover:text-amber-200'
+                  : 'btn-3d-cyan shadow-[0_0_15px_rgba(6,182,212,0.4)] animate-pulse'
                 : 'btn-3d-secondary text-slate-200 hover:text-white'
             }`}
-            title={isPlayingAudio ? 'Stop audio briefing' : 'Play voice-synthesized audio briefing'}
+            title={
+              isPlayingAudio
+                ? isPausedAudio
+                  ? 'Resume reading report aloud'
+                  : 'Pause audio reading'
+                : 'Read entire report aloud clearly from beginning to end'
+            }
           >
-            {isPlayingAudio ? <VolumeX className="w-3.5 h-3.5 text-rose-400" /> : <Volume2 className="w-3.5 h-3.5 text-blue-400" />}
-            <span>{isPlayingAudio ? 'Stop Audio' : 'Listen'}</span>
+            {isPlayingAudio ? (
+              isPausedAudio ? (
+                <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+              ) : (
+                <Pause className="w-3.5 h-3.5 text-cyan-200 fill-cyan-200" />
+              )
+            ) : (
+              <Volume2 className="w-3.5 h-3.5 text-blue-400" />
+            )}
+            <span>
+              {isPlayingAudio
+                ? isPausedAudio
+                  ? 'Resume Audio'
+                  : 'Pause Audio'
+                : 'Listen'}
+            </span>
           </button>
+
+          {/* Quick Stop Button when Audio is Playing */}
+          {isPlayingAudio && (
+            <button
+              onClick={stopAudioBriefing}
+              className="p-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition"
+              title="Stop reading aloud"
+            >
+              <VolumeX className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Presentation Deck Button */}
           <button
@@ -938,12 +1325,13 @@ export const ReportView: React.FC = () => {
       {/* Main Document Canvas Sheet */}
       <div className="glass-3d-card relative overflow-hidden max-w-5xl mx-auto rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-10 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.85),0_0_50px_rgba(14,165,233,0.12)] space-y-6 sm:space-y-8 border border-slate-700/80">
         <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent pointer-events-none" />
+        
         {/* Document Header with Metadata Alignment */}
-        <div className="border-b border-slate-800/80 pb-6 space-y-4">
+        <div id="report-header" className="border-b border-slate-800/80 pb-6 space-y-4">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-extrabold text-brand-400">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>DATOVA AI • AUTONOMOUS BUSINESS REPORT & DASHBOARD</span>
+              <span>DATOVA AI • EXECUTIVE BUSINESS REPORT & DASHBOARD</span>
             </div>
             <span className="text-[11px] font-mono text-slate-400">
               {new Date(report.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
@@ -960,11 +1348,108 @@ export const ReportView: React.FC = () => {
             <span>Health Score: <strong className="text-emerald-400">{currentDataset.data_health_score}/100</strong></span>
             <span className="text-slate-600">•</span>
             <span>{currentDataset.row_count.toLocaleString()} Records Analyzed</span>
+            <span className="text-slate-600">•</span>
+            <span className="text-cyan-300 flex items-center gap-1 font-medium">
+              <Clock className="w-3 h-3" />
+              <span>Full Voice Briefing Available</span>
+            </span>
+          </div>
+
+          {/* Quick Explanation Banner */}
+          <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/25 flex items-start gap-2.5 text-xs text-slate-300">
+            <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="font-semibold text-white mr-1.5">Simple & Organized Format:</span>
+              <span>
+                This report summarizes your data into clear sections with simple explanations, key metric highlights, visual charts, and practical action items. Click <strong>Listen</strong> above to hear the entire report read aloud from start to finish.
+              </span>
+            </div>
+          </div>
+
+          {/* Table of Contents Quick Jump Navigator */}
+          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-2.5 sm:p-3 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+                <Compass className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Report Sections & Quick Navigation</span>
+              </span>
+              <span className="text-[10px] text-slate-500">
+                {report.sections?.length || 0} sections • Click to jump
+              </span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              <a
+                href="#report-header"
+                onClick={(e) => {
+                  e.preventDefault();
+                  document.getElementById('report-header')?.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                  activeSpeakingSectionId === 'report-header'
+                    ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
+                    : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
+                }`}
+              >
+                Overview
+              </a>
+              {primaryKpis.length > 0 && (
+                <a
+                  href="#report-kpis"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('report-kpis')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                    activeSpeakingSectionId === 'report-kpis'
+                      ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
+                      : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
+                  }`}
+                >
+                  Key Metrics
+                </a>
+              )}
+              {topInsights.length > 0 && (
+                <a
+                  href="#report-insights"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    document.getElementById('report-insights')?.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                    activeSpeakingSectionId === 'report-insights'
+                      ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
+                      : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
+                  }`}
+                >
+                  Key Insights
+                </a>
+              )}
+              {report.sections?.map((sec, idx) => {
+                const isCurrentSpeaking = activeSpeakingSectionId === `section-${sec.id}`;
+                return (
+                  <a
+                    key={sec.id}
+                    href={`#section-${sec.id}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById(`section-${sec.id}`)?.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                      isCurrentSpeaking
+                        ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
+                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
+                    }`}
+                  >
+                    {idx + 1}. {sec.title.split('•')[0].split(':')[0].trim()}
+                  </a>
+                );
+              })}
+            </div>
           </div>
 
           {/* TOP EXECUTIVE KPI RIBBON WITH PROPER ALIGNMENT */}
           {primaryKpis.length > 0 && (
-            <div className="pt-2">
+            <div id="report-kpis" className="pt-2">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
                 {primaryKpis.map((kpi, kIdx) => (
                   <div
@@ -995,7 +1480,7 @@ export const ReportView: React.FC = () => {
 
         {/* EXECUTIVE KEY INSIGHTS DOSSIER (High-Impact Highlight Cards) */}
         {topInsights.length > 0 && (
-          <div className="glass-3d-card relative overflow-hidden space-y-3.5 p-5 rounded-2xl border border-cyan-500/40 shadow-2xl">
+          <div id="report-insights" className="glass-3d-card relative overflow-hidden space-y-3.5 p-5 rounded-2xl border border-cyan-500/40 shadow-2xl">
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
             <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
               <div className="flex items-center gap-2">
@@ -1122,10 +1607,17 @@ export const ReportView: React.FC = () => {
               return null;
             }
 
+            const isSpeakingThisSection = activeSpeakingSectionId === `section-${sec.id}`;
+
             return (
               <div
                 key={sec.id}
-                className="card-3d-interactive glass-3d-card relative overflow-hidden p-6 rounded-2xl border border-slate-700/60 hover:border-cyan-500/40 transition-all duration-300 shadow-xl space-y-5 group"
+                id={`section-${sec.id}`}
+                className={`card-3d-interactive glass-3d-card relative overflow-hidden p-6 rounded-2xl border transition-all duration-300 shadow-xl space-y-5 group ${
+                  isSpeakingThisSection
+                    ? 'border-cyan-400/80 ring-2 ring-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.25)] bg-slate-900/90'
+                    : 'border-slate-700/60 hover:border-cyan-500/40'
+                }`}
               >
                 <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent pointer-events-none" />
                 {isEditing ? (
@@ -1180,6 +1672,12 @@ export const ReportView: React.FC = () => {
                         <span className="hidden sm:inline-block text-[10px] font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 px-2 py-0.5 rounded-full flex-shrink-0">
                           {badgeText}
                         </span>
+                        {isSpeakingThisSection && (
+                          <span className="text-[9px] font-bold font-mono tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
+                            Reading Aloud
+                          </span>
+                        )}
                       </div>
 
                       {/* Edit & Delete Action Hover Buttons */}
@@ -1198,6 +1696,15 @@ export const ReportView: React.FC = () => {
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
+                      </div>
+                    </div>
+
+                    {/* Short Plain-English Explanation Callout */}
+                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300">
+                      <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <span className="font-bold text-white mr-1.5">What this section shows:</span>
+                        <span className="text-slate-300">{getSectionShortExplanation(sec.section_type, sec.title)}</span>
                       </div>
                     </div>
 
@@ -1245,7 +1752,7 @@ export const ReportView: React.FC = () => {
         </div>
 
         {/* Document Footer Notice */}
-        <div className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 space-y-1">
+        <div id="report-footer" className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 space-y-1">
           <p className="font-semibold text-slate-400">
             DATOVA Autonomous Intelligence Engine • Dynamic Multi-Sheet Analytics
           </p>
@@ -1254,6 +1761,99 @@ export const ReportView: React.FC = () => {
           </p>
         </div>
       </div>
+
+      {/* Floating Audio Player Control Dock */}
+      {isPlayingAudio && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4 animate-slideUp">
+          <div className="bg-[#090D16]/95 border border-cyan-500/50 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(6,182,212,0.25)] backdrop-blur-xl rounded-2xl p-3.5 sm:p-4 text-white flex flex-col gap-2.5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center flex-shrink-0">
+                  {isPausedAudio ? (
+                    <Pause className="w-4 h-4 text-amber-400" />
+                  ) : (
+                    <div className="flex items-center gap-0.5">
+                      <span className="w-1 bg-cyan-400 rounded-full animate-pulse h-3" />
+                      <span className="w-1 bg-cyan-300 rounded-full animate-pulse delay-75 h-4" />
+                      <span className="w-1 bg-cyan-400 rounded-full animate-pulse delay-150 h-2" />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
+                      {isPausedAudio ? 'Audio Paused' : 'Reading Aloud'}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Part {currentChunkIndex + 1} of {speechQueue.length}
+                    </span>
+                  </div>
+                  <h6 className="text-xs font-bold text-slate-100 truncate">
+                    {speechQueue[currentChunkIndex]?.sectionTitle || 'Business Report'}
+                  </h6>
+                </div>
+              </div>
+
+              {/* Controls */}
+              <div className="flex items-center gap-1.5 flex-shrink-0">
+                <button
+                  onClick={handlePrevSectionAudio}
+                  title="Previous Section"
+                  className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                >
+                  <SkipBack className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  onClick={toggleAudioBriefing}
+                  title={isPausedAudio ? 'Resume' : 'Pause'}
+                  className={`p-2 rounded-xl text-white font-bold transition shadow-lg ${
+                    isPausedAudio
+                      ? 'bg-amber-500 hover:bg-amber-400'
+                      : 'bg-cyan-500 hover:bg-cyan-400'
+                  }`}
+                >
+                  {isPausedAudio ? <Play className="w-4 h-4 fill-white" /> : <Pause className="w-4 h-4 fill-white" />}
+                </button>
+
+                <button
+                  onClick={handleNextSectionAudio}
+                  title="Next Section"
+                  className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
+                >
+                  <SkipForward className="w-3.5 h-3.5" />
+                </button>
+
+                <button
+                  onClick={handleCycleSpeed}
+                  title="Cycle Speech Speed"
+                  className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] font-mono font-bold text-cyan-300 hover:bg-slate-700 transition"
+                >
+                  {audioSpeed}x
+                </button>
+
+                <button
+                  onClick={stopAudioBriefing}
+                  title="Stop Audio"
+                  className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 transition border border-rose-500/30"
+                >
+                  <Square className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Smooth Progress Bar */}
+            <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
+              <div
+                className="bg-gradient-to-r from-cyan-500 to-brand-400 h-full transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, Math.round(((currentChunkIndex + 1) / Math.max(1, speechQueue.length)) * 100))}%`
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Presentation Deck Fullscreen Modal */}
       <PresentationDeckModal

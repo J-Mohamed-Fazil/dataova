@@ -7,6 +7,8 @@ import {
   AnomalyRecord,
   DashboardSheet,
   DashboardChart,
+  AIDynamicArchetype,
+  AIDiscoveredArchetypesResponse,
   StudioPreviewResult,
   AIChartBlueprint,
   CognitiveThoughtStep,
@@ -228,6 +230,19 @@ export const api = {
     });
     if (!res.ok) {
       let detail = 'Failed to generate AI dashboard';
+      try {
+        const errJson = await res.json();
+        detail = errJson.detail || detail;
+      } catch (e) {}
+      throw new Error(detail);
+    }
+    return res.json();
+  },
+
+  getAIDiscoveredArchetypes: async (datasetId: string): Promise<AIDiscoveredArchetypesResponse> => {
+    const res = await authFetch(`${API_BASE}/dashboard/${datasetId}/ai-discovered-archetypes`);
+    if (!res.ok) {
+      let detail = 'Failed to discover AI archetypes';
       try {
         const errJson = await res.json();
         detail = errJson.detail || detail;
@@ -621,13 +636,14 @@ export const api = {
   // Predictive Forecasting
   getForecast: async (
     datasetId: string,
-    params?: { metric?: string; date_col?: string; horizon?: number; table_name?: string }
+    params?: { metric?: string; date_col?: string; horizon?: number; table_name?: string; confidence_level?: number }
   ): Promise<ForecastResult> => {
     const q = new URLSearchParams();
     if (params?.metric) q.append('metric', params.metric);
     if (params?.date_col) q.append('date_col', params.date_col);
     if (params?.horizon) q.append('horizon', String(params.horizon));
     if (params?.table_name) q.append('table_name', params.table_name);
+    if (params?.confidence_level) q.append('confidence_level', String(params.confidence_level));
 
     const res = await authFetch(`${API_BASE}/analysis/${datasetId}/forecast?${q.toString()}`);
     if (!res.ok) {
@@ -717,7 +733,8 @@ export const api = {
     datasetId: string,
     query: string,
     tableName?: string,
-    maxRows?: number
+    maxRows?: number,
+    question?: string
   ): Promise<SqlQueryResult> => {
     const res = await authFetch(`${API_BASE}/analysis/${datasetId}/sql`, {
       method: 'POST',
@@ -725,7 +742,8 @@ export const api = {
       body: JSON.stringify({
         query,
         table_name: tableName,
-        max_rows: maxRows || 200
+        max_rows: maxRows || 200,
+        question
       })
     });
     if (!res.ok) {

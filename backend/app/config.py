@@ -44,7 +44,7 @@ class Settings(BaseSettings):
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3"
     OPENAI_MODEL: str = "gpt-4o"
-    GEMINI_MODEL: str = "gemini-1.5-flash"
+    GEMINI_MODEL: str = "gemini-3.1-flash-lite"
     DEEPSEEK_MODEL: str = "deepseek-chat"
     ANTHROPIC_MODEL: str = "claude-3-5-sonnet-latest"
     DEFAULT_LLM_PROVIDER: str = "auto" # "openai", "gemini", "deepseek", "anthropic", "ollama", "auto", or "offline_deterministic"

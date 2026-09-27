@@ -98,6 +98,448 @@ class DashboardGenerator:
         return profiles
 
     @classmethod
+    def infer_domain_and_semantic_context(
+        cls,
+        dataframes: Dict[str, pd.DataFrame],
+        profiles: Optional[Dict[str, Dict[str, Any]]] = None
+    ) -> Dict[str, Any]:
+        """
+        Deep semantic analysis that understands data types, column semantics, table context,
+        and value samples to accurately determine the operational or business domain without pre-built templates.
+        """
+        domain_keywords = {
+            "healthcare": {
+                "label": "Healthcare & Clinical Outcomes",
+                "badge": "Clinical",
+                "icon": "Activity",
+                "keywords": ["patient", "hospital", "diagnosis", "admission", "physician", "doctor", "medical", "treatment", "clinic", "mortality", "readmission", "dosage", "drug", "disease", "stay", "icu", "nurse", "surgery", "vital", "blood", "health", "symptom", "rx", "lab", "pathology", "acuity"]
+            },
+            "hr_workforce": {
+                "label": "Workforce & Human Capital",
+                "badge": "Workforce",
+                "icon": "Users",
+                "keywords": ["employee", "salary", "bonus", "department", "tenure", "attrition", "hire", "recruitment", "headcount", "performance", "turnover", "job", "staff", "wage", "satisfaction", "promotion", "absenteeism", "workforce", "compensation", "leave", "grade"]
+            },
+            "commerce_retail": {
+                "label": "Commerce & Revenue Intelligence",
+                "badge": "Commerce",
+                "icon": "DollarSign",
+                "keywords": ["product", "sku", "cart", "order", "sales", "revenue", "customer", "price", "discount", "transaction", "checkout", "catalog", "retail", "merchant", "inventory", "brand", "store", "purchase", "item", "basket"]
+            },
+            "supply_chain_logistics": {
+                "label": "Supply Chain & Logistics Velocity",
+                "badge": "Logistics",
+                "icon": "TrendingUp",
+                "keywords": ["shipment", "carrier", "freight", "warehouse", "delivery", "transit", "route", "fleet", "delay", "dispatch", "port", "tracking", "logistics", "supply", "cargo", "origin", "destination", "courier", "vehicle", "fulfillment"]
+            },
+            "iot_engineering": {
+                "label": "Industrial IoT & Asset Reliability",
+                "badge": "IoT & Telemetry",
+                "icon": "Zap",
+                "keywords": ["sensor", "machine", "device", "vibration", "temperature", "pressure", "voltage", "telemetry", "humidity", "rpm", "failure", "alert", "equipment", "downtime", "maintenance", "power", "watt", "hertz", "bearing", "motor", "engine"]
+            },
+            "finance_investment": {
+                "label": "Financial Portfolio & Risk Intelligence",
+                "badge": "Financials",
+                "icon": "Award",
+                "keywords": ["portfolio", "ticker", "asset", "equity", "stock", "dividend", "yield", "balance", "credit", "loan", "interest", "debt", "risk_score", "return", "volatility", "alpha", "beta", "fund", "deposit", "capital", "liability"]
+            },
+            "digital_product": {
+                "label": "Digital Product & User Engagement",
+                "badge": "Product",
+                "icon": "Target",
+                "keywords": ["session", "pageview", "event", "conversion", "retention", "signup", "dau", "mau", "feature", "bounce", "duration", "device", "browser", "referrer", "subscription", "clicks", "funnel", "app", "engagement"]
+            },
+            "education": {
+                "label": "Academic & Educational Dynamics",
+                "badge": "Academics",
+                "icon": "Award",
+                "keywords": ["student", "course", "grade", "gpa", "major", "exam", "tuition", "faculty", "semester", "school", "university", "campus", "attendance", "degree", "class", "scholarship", "curriculum"]
+            },
+            "real_estate": {
+                "label": "Real Estate & Property Valuation",
+                "badge": "Real Estate",
+                "icon": "Layers",
+                "keywords": ["property", "sqft", "bedroom", "bathroom", "rent", "neighborhood", "mortgage", "listing", "house", "apartment", "real_estate", "zoning", "lot", "condo", "realtor", "valuation"]
+            }
+        }
+
+        domain_scores = {k: 0.0 for k in domain_keywords}
+        all_text_tokens = []
+        for t_name, df in dataframes.items():
+            all_text_tokens.extend(t_name.lower().replace("_", " ").split())
+            for col in df.columns:
+                all_text_tokens.extend(str(col).lower().replace("_", " ").split())
+
+        for token in all_text_tokens:
+            for d_key, info in domain_keywords.items():
+                for kw in info["keywords"]:
+                    if kw in token or token in kw:
+                        domain_scores[d_key] += 2.0
+
+        best_domain_key = max(domain_scores, key=domain_scores.get)
+        best_score = domain_scores[best_domain_key]
+
+        if best_score >= 3.0:
+            info = domain_keywords[best_domain_key]
+            confidence = min(0.98, 0.65 + (best_score * 0.03))
+            return {
+                "key": best_domain_key,
+                "label": info["label"],
+                "badge": info["badge"],
+                "icon": info["icon"],
+                "confidence": round(confidence, 2)
+            }
+        else:
+            first_t = list(dataframes.keys())[0] if dataframes else "Enterprise"
+            return {
+                "key": "general_operations",
+                "label": f"{first_t.replace('_', ' ').title()} Operational Intelligence",
+                "badge": "Operations",
+                "icon": "Sparkles",
+                "confidence": 0.85
+            }
+
+    @classmethod
+    def discover_ai_archetypes(
+        cls,
+        all_dataframes: Dict[str, pd.DataFrame],
+        detected_rels: Optional[List[Dict[str, Any]]] = None,
+        dataset_name: str = "Dataset",
+        dataset_id: str = ""
+    ) -> Dict[str, Any]:
+        """
+        Autonomously discovers and synthesizes bespoke analytical archetypes tailored strictly
+        to the data types, column distributions, and semantic domain of the presented data.
+        Eliminates all pre-built business templates in favor of pure AI data-driven synthesis.
+        """
+        profiles = cls._extract_table_profiles(all_dataframes)
+        table_names = list(all_dataframes.keys())
+        if not table_names:
+            return {
+                "dataset_id": dataset_id,
+                "dataset_name": dataset_name,
+                "domain": "Unknown",
+                "domain_confidence": 0.0,
+                "summary": "No tabular data detected.",
+                "recommended_archetype_id": "arch_default",
+                "archetypes": [],
+                "data_profile": {}
+            }
+
+        domain_info = cls.infer_domain_and_semantic_context(all_dataframes, profiles)
+
+        # Pick primary table (highest analytical cardinality)
+        best_t = table_names[0]
+        best_t_score = -1
+        for t in table_names:
+            p = profiles.get(t, {})
+            score = len(p.get("nums", [])) * 2 + len(p.get("cats", [])) * 3 + len(p.get("dates", [])) * 2
+            if score > best_t_score:
+                best_t_score = score
+                best_t = t
+
+        primary_table = best_t
+        df = all_dataframes[primary_table]
+        p = profiles.get(primary_table, {})
+
+        nums = list(p.get("nums", []))
+        cats = list(p.get("cats", []))
+        dates = list(p.get("dates", []))
+        geos = list(p.get("geos", []))
+
+        # Classify numbers into scale metrics vs efficiency rates vs risk tails
+        scale_keys = ["amount", "total", "sales", "revenue", "salary", "volume", "stay", "hours", "count", "headcount", "cost", "price", "temperature", "distance", "duration", "balance", "weight", "units"]
+        rate_keys = ["rate", "pct", "percent", "margin", "discount", "ratio", "score", "yield", "efficiency", "rating", "gpa", "vibration", "index"]
+        risk_keys = ["loss", "risk", "error", "defect", "downtime", "delay", "return", "penalty", "variance", "fault"]
+
+        scale_nums = [c for c in nums if any(k in c.lower() for k in scale_keys)]
+        rate_nums = [c for c in nums if any(k in c.lower() for k in rate_keys)]
+        risk_nums = [c for c in nums if any(k in c.lower() for k in risk_keys)]
+
+        primary_metric = scale_nums[0] if scale_nums else (nums[0] if nums else (df.columns[0] if len(df.columns) > 0 else "Metric"))
+        eff_candidates = [c for c in rate_nums if c != primary_metric] or [c for c in nums if c != primary_metric]
+        efficiency_metric = eff_candidates[0] if eff_candidates else primary_metric
+        alt_candidates = [c for c in nums if c not in (primary_metric, efficiency_metric)]
+        alt_metric = alt_candidates[0] if alt_candidates else primary_metric
+        risk_candidates = risk_nums or [c for c in nums if c != primary_metric]
+        risk_metric = risk_candidates[0] if risk_candidates else primary_metric
+
+        primary_cat = cats[0] if cats else (df.columns[0] if len(df.columns) > 0 else "Segment")
+        sec_candidates = [c for c in (geos or cats) if c != primary_cat]
+        secondary_cat = sec_candidates[0] if sec_candidates else primary_cat
+        date_col = dates[0] if dates else None
+
+        # Clean display labels
+        pm_clean = primary_metric.replace("_", " ").title()
+        em_clean = efficiency_metric.replace("_", " ").title()
+        alt_clean = alt_metric.replace("_", " ").title()
+        risk_clean = risk_metric.replace("_", " ").title()
+        cat_clean = primary_cat.replace("_", " ").title()
+        sec_cat_clean = secondary_cat.replace("_", " ").title()
+        date_clean = date_col.replace("_", " ").title() if date_col else "Timeline"
+
+        archetypes = []
+
+        # -------------------------------------------------------------
+        # 1. Primary Scale & Driver Synthesis (AI Recommended)
+        # -------------------------------------------------------------
+        c1_charts = [
+            f"Dual-Axis Composed: {pm_clean} vs {em_clean} by {cat_clean}" if em_clean != pm_clean else f"Primary Driver Bar: {pm_clean} by {cat_clean}",
+            f"Concentration Donut: {pm_clean} Share by {cat_clean}",
+            f"Longitudinal Trajectory Area: {pm_clean} over {date_clean}" if date_col else f"Pareto Ranking Horizontal Bar: {pm_clean} by {cat_clean}",
+            f"Polar Radar Profile: {pm_clean} across {sec_cat_clean}" if sec_cat_clean != cat_clean else f"Distribution Histogram: {pm_clean}",
+            f"Parametric Scatter: {pm_clean} vs {em_clean}"
+        ]
+        archetypes.append({
+            "id": "arch_scale_driver",
+            "category": "performance",
+            "title": f"{pm_clean} Scale & {cat_clean} Synthesis",
+            "badge": domain_info["badge"],
+            "badge_class": "badge-neon-blue",
+            "desc": f"Analyzes primary volume drivers for '{pm_clean}' and establishes macro baseline distributions across {cat_clean} segments.",
+            "suggested_prompt": f"Synthesize primary performance drivers for {pm_clean} across {cat_clean}, contrasting with {em_clean}.",
+            "charts_planned": c1_charts,
+            "recommended": True,
+            "target_table": primary_table,
+            "x_field": primary_cat,
+            "y_field": primary_metric,
+            "secondary_y_field": efficiency_metric if efficiency_metric != primary_metric else None,
+            "date_field": date_col,
+            "icon_type": "Award",
+            "metrics_spotlight": [primary_metric, efficiency_metric],
+            "dimensions_spotlight": [primary_cat, secondary_cat]
+        })
+
+        # -------------------------------------------------------------
+        # 2. Efficiency, Ratio & Performance Frontier
+        # -------------------------------------------------------------
+        c2_charts = [
+            f"Frontier Trade-Off Scatter: {pm_clean} vs {em_clean}",
+            f"Horizontal Ranking Bar: {em_clean} by {cat_clean}",
+            f"Composed Spread: {em_clean} vs {pm_clean} by {sec_cat_clean}",
+            f"Cumulative Velocity Area: {em_clean} Trajectory"
+        ]
+        archetypes.append({
+            "id": "arch_efficiency_frontier",
+            "category": "efficiency",
+            "title": f"{em_clean} vs {pm_clean} Efficiency Frontier" if em_clean != pm_clean else f"{pm_clean} Yield & Performance Frontier",
+            "badge": "Frontier",
+            "badge_class": "badge-neon-emerald",
+            "desc": f"Evaluates efficiency benchmarks, non-linear yield curves, and trade-off frontiers between {pm_clean} and {em_clean}.",
+            "suggested_prompt": f"Examine efficiency trade-offs and margin yield between {pm_clean} and {em_clean} across {cat_clean} divisions.",
+            "charts_planned": c2_charts,
+            "recommended": False,
+            "target_table": primary_table,
+            "x_field": primary_cat,
+            "y_field": efficiency_metric,
+            "secondary_y_field": primary_metric,
+            "date_field": date_col,
+            "icon_type": "TrendingUp",
+            "metrics_spotlight": [efficiency_metric, primary_metric],
+            "dimensions_spotlight": [primary_cat]
+        })
+
+        # -------------------------------------------------------------
+        # 3. Outlier Variance & Risk Tail Exposure
+        # -------------------------------------------------------------
+        c3_charts = [
+            f"Statistical Histogram: {risk_clean} Outlier Tails & Variance",
+            f"Bottleneck Variance Bar: {risk_clean} by {cat_clean}",
+            f"Polar Concentration Risk Radar: {risk_clean} across {sec_cat_clean}",
+            f"Outlier Dispersion Scatter: {risk_clean} vs {pm_clean}"
+        ]
+        archetypes.append({
+            "id": "arch_risk_variance",
+            "category": "risk",
+            "title": f"{cat_clean} Anomaly Variance & Risk Tails",
+            "badge": "Risk & Tails",
+            "badge_class": "badge-neon-amber",
+            "desc": f"Isolates statistical anomalies, distribution skewness, and extreme variance in '{risk_clean}' exceeding 2.5x standard deviations.",
+            "suggested_prompt": f"Identify extreme outlier deviations and operational bottlenecks in {risk_clean} across {cat_clean}.",
+            "charts_planned": c3_charts,
+            "recommended": False,
+            "target_table": primary_table,
+            "x_field": primary_cat,
+            "y_field": risk_metric,
+            "secondary_y_field": None,
+            "date_field": date_col,
+            "icon_type": "ShieldAlert",
+            "metrics_spotlight": [risk_metric],
+            "dimensions_spotlight": [primary_cat, secondary_cat]
+        })
+
+        # -------------------------------------------------------------
+        # 4. Temporal Momentum or Multi-Cohort Demographics
+        # -------------------------------------------------------------
+        if date_col:
+            c4_charts = [
+                f"ARIMA Momentum Forecast Area: {pm_clean} over {date_clean}",
+                f"Period-over-Period Pacing Bar: {pm_clean}",
+                f"Cyclical Seasonality Waves Line: {pm_clean}",
+                f"Velocity Acceleration vs Scale Scatter Matrix"
+            ]
+            archetypes.append({
+                "id": "arch_momentum_forecast",
+                "category": "momentum",
+                "title": f"Longitudinal {pm_clean} Momentum & Forecast",
+                "badge": "Forecast",
+                "badge_class": "badge-neon-pink",
+                "desc": f"Tracks chronological pacing, velocity acceleration, and forward ARIMA projections for '{pm_clean}' over {date_clean}.",
+                "suggested_prompt": f"Evaluate longitudinal momentum, period-over-period acceleration, and forecast for {pm_clean}.",
+                "charts_planned": c4_charts,
+                "recommended": False,
+                "target_table": primary_table,
+                "x_field": date_col,
+                "y_field": primary_metric,
+                "secondary_y_field": None,
+                "date_field": date_col,
+                "icon_type": "Activity",
+                "metrics_spotlight": [primary_metric],
+                "dimensions_spotlight": [date_col]
+            })
+        else:
+            c4_charts = [
+                f"Cohort Proportional Distribution Bar: {pm_clean} by {cat_clean}",
+                f"Multi-Entity Polar Radar: {pm_clean} across {sec_cat_clean}",
+                f"Cross-Dimensional Scatter: {pm_clean} vs {alt_clean}",
+                f"Proportional Treemap: {cat_clean} Density"
+            ]
+            archetypes.append({
+                "id": "arch_cohort_segmentation",
+                "category": "cohorts",
+                "title": f"{cat_clean} Multi-Cohort & Demographic Matrix",
+                "badge": "Cohorts",
+                "badge_class": "badge-neon-purple",
+                "desc": f"Cross-dimensional segmentation mapping behavioral concentration and entity density across {cat_clean} divisions.",
+                "suggested_prompt": f"Analyze cohort segmentation and demographic clusters for {cat_clean} by {pm_clean}.",
+                "charts_planned": c4_charts,
+                "recommended": False,
+                "target_table": primary_table,
+                "x_field": primary_cat,
+                "y_field": primary_metric,
+                "secondary_y_field": None,
+                "date_field": None,
+                "icon_type": "Users",
+                "metrics_spotlight": [primary_metric, alt_metric],
+                "dimensions_spotlight": [primary_cat, secondary_cat]
+            })
+
+        # -------------------------------------------------------------
+        # 5. Unit Economics & Pareto Leverage
+        # -------------------------------------------------------------
+        c5_charts = [
+            f"Unit Contribution Ranking: {pm_clean} by {cat_clean}",
+            f"Break-Even Frontier Scatter: {pm_clean} vs {alt_clean}",
+            f"Unit Share Pareto Donut: {cat_clean}",
+            f"Gross Velocity Gradient Area"
+        ]
+        archetypes.append({
+            "id": "arch_unit_economics",
+            "category": "economics",
+            "title": f"{cat_clean} Unit Economics & Pareto Ranking",
+            "badge": "Unit Economics",
+            "badge_class": "badge-neon-cyan",
+            "desc": f"Ranks {cat_clean} units by contribution yield and uncovers Pareto 80/20 leverage frontiers in {pm_clean}.",
+            "suggested_prompt": f"Rank {cat_clean} units by net {pm_clean} contribution to isolate highest-yield segments.",
+            "charts_planned": c5_charts,
+            "recommended": False,
+            "target_table": primary_table,
+            "x_field": primary_cat,
+            "y_field": primary_metric,
+            "secondary_y_field": alt_metric if alt_metric != primary_metric else None,
+            "date_field": date_col,
+            "icon_type": "DollarSign",
+            "metrics_spotlight": [primary_metric, alt_metric],
+            "dimensions_spotlight": [primary_cat]
+        })
+
+        # -------------------------------------------------------------
+        # 6. Relational Spanning Topology (if multi-table)
+        # -------------------------------------------------------------
+        if len(all_dataframes) > 1:
+            archetypes.append({
+                "id": "arch_cross_relational",
+                "category": "relational",
+                "title": f"Universal Relational Topology ({len(all_dataframes)} Tables)",
+                "badge": "Relational",
+                "badge_class": "badge-neon-blue",
+                "desc": f"Relational spanning trees traversing foreign key links across {len(all_dataframes)} tables in this dataset.",
+                "suggested_prompt": f"Synthesize universal multi-table entity bridges across all connected tables.",
+                "charts_planned": [
+                    "Cross-Table Relational Entity Bridges",
+                    "Universal Spanning Tree Matrix",
+                    "Multi-Dimensional Categorical Drill-Downs"
+                ],
+                "recommended": False,
+                "target_table": primary_table,
+                "x_field": primary_cat,
+                "y_field": primary_metric,
+                "secondary_y_field": None,
+                "date_field": date_col,
+                "icon_type": "GitBranch",
+                "metrics_spotlight": [primary_metric],
+                "dimensions_spotlight": [primary_cat]
+            })
+
+        # -------------------------------------------------------------
+        # 7. Omni-Dataset Comprehensive (All Tables & All Possible Charts)
+        # -------------------------------------------------------------
+        archetypes.append({
+            "id": "all",
+            "category": "comprehensive",
+            "title": f"Exhaustive Omni-Dashboard (All {len(all_dataframes)} Tables & Connected Charts)",
+            "badge": "All Tables",
+            "badge_class": "badge-neon-purple",
+            "desc": f"Exhaustively synthesizes all possible charts across every table and cross-table join in the dataset, connecting all tables and data types.",
+            "suggested_prompt": "Synthesize all possible charts across all tables, connecting all relational foreign keys and single-table dimensions into an exhaustive multi-sheet dashboard.",
+            "charts_planned": [
+                "Universal N-Table Unified Slicers",
+                "Pairwise Cross-Table Joins & Scatter Correlations",
+                "Single-Table Categorical & Temporal Breakdowns",
+                "Distribution & Outlier Anomaly Histograms",
+                "Boardroom Decision Insights across All Sheets"
+            ],
+            "recommended": False,
+            "target_table": primary_table,
+            "x_field": primary_cat,
+            "y_field": primary_metric,
+            "secondary_y_field": efficiency_metric if efficiency_metric != primary_metric else None,
+            "date_field": date_col,
+            "icon_type": "Layers",
+            "metrics_spotlight": nums[:4],
+            "dimensions_spotlight": cats[:4]
+        })
+
+        total_cols = sum(len(df_t.columns) for df_t in all_dataframes.values())
+        summary = (
+            f"AI analyzed {len(all_dataframes)} table(s) and {total_cols} columns. "
+            f"Detected domain: '{domain_info['label']}' with {len(nums)} quantitative metric(s) "
+            f"({', '.join(nums[:3]) if nums else 'none'}), {len(cats)} categorical dimension(s) "
+            f"({', '.join(cats[:3]) if cats else 'none'}), and {len(dates)} temporal sequence(s)."
+        )
+
+        return {
+            "dataset_id": dataset_id,
+            "dataset_name": dataset_name,
+            "domain": domain_info["label"],
+            "domain_confidence": domain_info["confidence"],
+            "summary": summary,
+            "recommended_archetype_id": "arch_scale_driver",
+            "archetypes": archetypes,
+            "data_profile": {
+                "primary_table": primary_table,
+                "primary_metrics": nums[:5],
+                "efficiency_metrics": rate_nums[:3],
+                "dimensions": cats[:5],
+                "dates": dates[:3],
+                "domain_key": domain_info["key"],
+                "domain_badge": domain_info["badge"],
+                "domain_icon": domain_info["icon"]
+            }
+        }
+
+    @classmethod
     def _select_best_table_for_preset(
         cls,
         preset: str,
@@ -311,8 +753,126 @@ class DashboardGenerator:
                 except Exception:
                     pass
 
+        # 1.4 Dynamic AI-Discovered Archetype / Auto Archetype Insight Engine
+        if (preset_clean in ["auto", "", "none", "custom", "ai_agent"] or preset_clean.startswith("arch_") or not any(preset_clean == l for l in ["executive", "executive_pulse", "revenue_growth", "growth", "customer_cohort", "cohort", "demographics", "operations_risk", "risk", "operations", "profitability_frontier", "unit_economics", "predictive_momentum", "momentum", "forecast", "cross_entity_matrix"])) and nums:
+            vol_col = nums[0]
+            eff_col = ([c for c in nums if c != vol_col] or [vol_col])[0]
+            target_cat = cats[0] if cats else (df.columns[0] if len(df.columns) > 0 else "Segment")
+            vol_clean = vol_col.replace('_', ' ').title()
+            eff_clean = eff_col.replace('_', ' ').title()
+            cat_clean = target_cat.replace('_', ' ').title()
+
+            try:
+                grouped = df.groupby(target_cat)[vol_col].sum().sort_values(ascending=False)
+                tot = float(df[vol_col].sum())
+                top_name = str(grouped.index[0]) if len(grouped) > 0 else "Primary Segment"
+                top_val = float(grouped.iloc[0]) if len(grouped) > 0 else 0
+                pct = round((top_val / tot * 100) if tot > 0 else 0, 1)
+
+                questions.append({
+                    "id": "q_ai_arch_top_driver",
+                    "question": f"What is the leading driver of cumulative {vol_clean} across {cat_clean}?",
+                    "answer": f"Analysis demonstrates that '{top_name}' commands prime scale with {fmt_val(top_val, vol_col)} ({pct}% of total {vol_clean}), serving as the primary anchor.",
+                    "metric": f"{fmt_val(top_val, vol_col)} ({pct}%)",
+                    "badge": "Primary Scale Driver",
+                    "recommendation": f"Prioritize operational capacity and resource allocation toward '{top_name}' while expanding secondary segment performance.",
+                    "confidence": 0.98,
+                    "icon": "Award",
+                    "impact_level": "Strategic",
+                    "category": "Performance",
+                    "chart_target": f"{vol_clean} by {cat_clean}"
+                })
+
+                if len(grouped) >= 2:
+                    top_2_val = float(grouped.iloc[:2].sum())
+                    top_2_pct = round((top_2_val / tot * 100) if tot > 0 else 0, 1)
+                    questions.append({
+                        "id": "q_ai_arch_pareto",
+                        "question": f"What is the Pareto concentration across the top {cat_clean} divisions?",
+                        "answer": f"The top 2 divisions account for {fmt_val(top_2_val, vol_col)} ({top_2_pct}% of total {vol_clean}), revealing strong distribution concentration.",
+                        "metric": f"Top 2: {top_2_pct}%",
+                        "badge": "Pareto Concentration",
+                        "recommendation": "Safeguard high-concentration divisions while cultivating adjacent growth vectors to mitigate single-cohort exposure.",
+                        "confidence": 0.96,
+                        "icon": "Target",
+                        "impact_level": "High Impact",
+                        "category": "Risk",
+                        "chart_target": f"Portfolio Share by {cat_clean}"
+                    })
+
+                if eff_col != vol_col:
+                    try:
+                        corr = float(df[[vol_col, eff_col]].dropna().corr().iloc[0, 1])
+                        corr_desc = "positive scaling correlation" if corr > 0.4 else ("inverse trade-off relationship" if corr < -0.3 else "moderate decoupled variance")
+                        questions.append({
+                            "id": "q_ai_arch_efficiency_frontier",
+                            "question": f"How does {eff_clean} trade off against {vol_clean} scale?",
+                            "answer": f"Correlation mapping identifies a {corr_desc} (Pearson r = {corr:+.2f}) between {vol_clean} and {eff_clean}, demonstrating quantifiable frontier dynamics.",
+                            "metric": f"r = {corr:+.2f}",
+                            "badge": "Efficiency Frontier",
+                            "recommendation": f"Optimize operational parameters where {eff_clean} remains resilient even under elevated {vol_clean} throughput.",
+                            "confidence": 0.94,
+                            "icon": "TrendingUp",
+                            "impact_level": "High Impact",
+                            "category": "Efficiency",
+                            "chart_target": f"{vol_clean} vs {eff_clean}"
+                        })
+                    except Exception:
+                        pass
+
+                try:
+                    mean_val = float(df[vol_col].mean())
+                    std_val = float(df[vol_col].std())
+                    outliers = df[df[vol_col] > (mean_val + 2 * std_val)]
+                    outlier_cnt = len(outliers)
+                    if outlier_cnt > 0:
+                        questions.append({
+                            "id": "q_ai_arch_outliers",
+                            "question": f"Are there extreme statistical anomalies or risk tails in {vol_clean}?",
+                            "answer": f"Statistical variance analysis flags {outlier_cnt} record(s) exceeding 2.0x standard deviations (mean: {fmt_val(mean_val, vol_col)}, σ: {fmt_val(std_val, vol_col)}), representing tail volatility.",
+                            "metric": f"{outlier_cnt} Outlier(s) > 2σ",
+                            "badge": "Statistical Anomaly",
+                            "recommendation": "Investigate outlier records for operational bottleneck risks or breakthrough performance drivers.",
+                            "confidence": 0.95,
+                            "icon": "ShieldAlert",
+                            "impact_level": "Medium Impact",
+                            "category": "Risk",
+                            "chart_target": f"{vol_clean} Statistical Distribution"
+                        })
+                except Exception:
+                    pass
+
+                if dates:
+                    date_col = dates[0]
+                    try:
+                        d_df = df.copy()
+                        d_df[date_col] = pd.to_datetime(d_df[date_col], errors="coerce")
+                        d_clean = d_df.dropna(subset=[date_col]).sort_values(by=date_col)
+                        if len(d_clean) >= 4:
+                            mid = len(d_clean) // 2
+                            first_half = float(d_clean.iloc[:mid][vol_col].mean())
+                            second_half = float(d_clean.iloc[mid:][vol_col].mean())
+                            traj_pct = round(((second_half - first_half) / first_half * 100) if first_half > 0 else 0, 1)
+                            questions.append({
+                                "id": "q_ai_arch_momentum",
+                                "question": f"How is longitudinal momentum progressing over {date_col.replace('_', ' ').title()} for {vol_clean}?",
+                                "answer": f"Longitudinal tracking indicates {traj_pct:+.1f}% period-over-period run-rate momentum, signaling {'accelerating operational trajectory' if traj_pct > 0 else 'cooling velocity'}.",
+                                "metric": f"{traj_pct:+.1f}% Run-Rate",
+                                "badge": "Momentum Trajectory",
+                                "recommendation": "Calibrate forward resource commitments and operational pacing against observed longitudinal momentum.",
+                                "confidence": 0.95,
+                                "icon": "Activity",
+                                "impact_level": "Strategic",
+                                "category": "Momentum",
+                                "chart_target": f"{vol_clean} Trajectory"
+                            })
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
         # 1.5 Executive Pulse & Strategic Synthesis Preset
-        if preset_clean in ["executive", "executive_pulse"] and nums:
+        elif preset_clean in ["executive", "executive_pulse"] and nums:
             vol_col = (prof.get("revenue_nums") or nums)[0]
             eff_col = ([c for c in (prof.get("margin_nums") or nums) if c != vol_col] or [vol_col])[0]
             target_cat = cats[0] if cats else (df.columns[0] if len(df.columns) > 0 else "Segment")
@@ -668,7 +1228,8 @@ class DashboardGenerator:
         dataset_id: str,
         all_dataframes: Dict[str, pd.DataFrame],
         detected_rels: List[Dict[str, Any]],
-        db: Session
+        db: Session,
+        palette: str = "cyberpunk"
     ) -> List[DashboardSheet]:
         """
         Synthesizes an exhaustive set of dashboards for single tables and all corresponding multi-table joins.
@@ -1362,9 +1923,11 @@ class DashboardGenerator:
 
         preset_clean = (preset or "executive").lower().strip()
         prompt_clean = (prompt or "").strip()
-
-        if preset_clean == "comprehensive" and not prompt_clean:
-            return cls.generate_all_sheets_and_charts(dataset_id, all_dataframes, detected_rels, db)
+        if (
+            preset_clean in ["all", "all_dashboards", "generate_all", "comprehensive", "omni", "exhaustive"]
+            or any(w in prompt_clean.lower() for w in ["all dashboard", "all charts", "all tables", "generate all", "all possible charts", "connect all tables"])
+        ):
+            return cls.generate_all_sheets_and_charts(dataset_id, all_dataframes, detected_rels, db, palette=palette)
 
         primary_table = cls._select_best_table_for_preset(preset_clean, all_dataframes, profiles)
         if not primary_table:
@@ -1381,12 +1944,31 @@ class DashboardGenerator:
         price_nums = list(p.get("unit_price_nums", []))
         op_nums = list(p.get("operational_nums", []))
 
+        # Discover dynamic archetypes directly from data
+        disc = cls.discover_ai_archetypes(all_dataframes, detected_rels, dataset_id=dataset_id)
+        dynamic_archetypes = disc.get("archetypes", [])
+        chosen_arch = None
+        for a in dynamic_archetypes:
+            if a["id"] == preset_clean or preset_clean in a["title"].lower():
+                chosen_arch = a
+                break
+        if not chosen_arch and preset_clean in ["auto", "", "none", "executive", "ai_agent", "custom_agent"]:
+            chosen_arch = next((a for a in dynamic_archetypes if a.get("recommended")), dynamic_archetypes[0] if dynamic_archetypes else None)
+
         # Smart column prioritization based on Archetype or Prompt
         if prompt_clean:
             sheet_title = f"AI Custom: {prompt_clean[:38]}..." if len(prompt_clean) > 40 else f"AI Custom: {prompt_clean}"
             p_tokens = prompt_clean.lower().split()
             nums.sort(key=lambda col: sum(1 for tok in p_tokens if tok in col.lower()), reverse=True)
             cats.sort(key=lambda col: sum(1 for tok in p_tokens if tok in col.lower()), reverse=True)
+        elif chosen_arch and (preset_clean in ["auto", "", "none", "executive", "ai_agent", "custom_agent"] or preset_clean.startswith("arch_") or preset_clean not in ["revenue_growth", "customer_cohort", "operations_risk", "profitability_frontier", "predictive_momentum", "cross_entity_matrix"]):
+            sheet_title = f"AI Archetype: {chosen_arch['title']}"
+            if chosen_arch.get("y_field") in nums:
+                nums.remove(chosen_arch["y_field"])
+                nums.insert(0, chosen_arch["y_field"])
+            if chosen_arch.get("x_field") in cats:
+                cats.remove(chosen_arch["x_field"])
+                cats.insert(0, chosen_arch["x_field"])
         elif preset_clean in ["executive", "executive_pulse"]:
             sheet_title = "Executive Pulse & Strategic Synthesis"
             exec_keys = ["revenue", "sales", "total", "amount", "salary", "gross", "income", "volume", "turnover", "spend"]
@@ -1422,7 +2004,7 @@ class DashboardGenerator:
         elif preset_clean == "cross_entity_matrix":
             sheet_title = "Cross-Entity Spanning & Relational Matrix"
         else:
-            sheet_title = "Executive Pulse & Strategic Synthesis"
+            sheet_title = f"AI Archetype: {chosen_arch['title']}" if chosen_arch else "Executive Pulse & Strategic Synthesis"
 
         sheet = DashboardSheet(
             dataset_id=dataset_id,
@@ -1444,7 +2026,14 @@ class DashboardGenerator:
         # AI AGENT DYNAMIC SYNTHESIS PIPELINE
         # Autonomously synthesize tailored AI agent dashboard for requested prompt or archetype
         # =====================================================================
-        if prompt_clean or preset_clean in ["ai_agent", "custom_agent"]:
+        is_dynamic_archetype = (
+            bool(prompt_clean) or
+            preset_clean in ["auto", "", "ai_agent", "custom_agent"] or
+            preset_clean.startswith("arch_") or
+            (chosen_arch is not None and preset_clean not in ["revenue_growth", "customer_cohort", "operations_risk", "profitability_frontier", "predictive_momentum", "cross_entity_matrix"])
+        )
+
+        if is_dynamic_archetype:
             try:
                 ai_agent_charts = cls._synthesize_with_ai_agent(
                     dataset_id=dataset_id,
@@ -2346,43 +2935,28 @@ class DashboardGenerator:
                     "Output MUST be strict JSON conforming to the requested schema."
                 )
 
-                archetype_mandates = {
-                    "executive": (
-                        "CRITICAL ARCHETYPE MANDATE: Executive Pulse & KPI Synthesis.\n"
-                        "- Visual Lens: C-suite macro volume, Pareto drivers, top segment performance, longitudinal trajectory, and leadership scorecard.\n"
-                        "- Required Charts: (1) Composed Dual-Axis: Macro Volume (Bar) vs Margin/Efficiency (Line) by top segment; (2) Area gradient of volume over time; (3) Pie/Donut of strategic segment concentration; (4) Radar profile across operational/regional dimensions; (5) Scatter of Scale vs Efficiency.\n"
-                        "- Field Guidelines: Primary Y must be top-line volume/revenue (e.g. Revenue, Sales, Total, Salary, Amount). Secondary Y should be Margin, Profit, or Quantity. X-axis must be categorical (e.g. Category, Department, Segment). Do NOT use ID numbers or unit pricing."
-                    ),
-                    "revenue_growth": (
-                        "CRITICAL ARCHETYPE MANDATE: Revenue, Margin & Growth Intelligence (Financials).\n"
-                        "- Visual Lens: Top-line revenue scale vs profit margin / discount, territory cash flow, pricing elasticity.\n"
-                        "- Required Charts: (1) Composed Dual-Axis: Revenue vs Margin/Discount; (2) Area gradient: Chronological Revenue Growth Pacing; (3) Bar/Horizontal Bar: Territory/Channel revenue split; (4) Scatter: Price vs Volume Elasticity or Discount curve; (5) Donut: Revenue portfolio share.\n"
-                        "- Field Guidelines: Primary Y must be Revenue/Sales. X-axis must be Category/Product or Territory/Region."
-                    ),
-                    "customer_cohort": (
-                        "CRITICAL ARCHETYPE MANDATE: Customer Cohort & Demographic Segmentation.\n"
-                        "- Visual Lens: Customer accounts, segments, tiers, RFM behavior, demographic retention.\n"
-                        "- NEVER use Date as the cohort category. Must use Customer_Segment, Loyalty_Tier, Country, Region, or Category.\n"
-                        "- Required Charts: (1) Bar/Treemap: Customer Cohort Distribution; (2) Radar: Demographic Multi-Cohort Polar Profile; (3) Scatter: Monetary Value vs Frequency (RFM); (4) Horizontal Bar: Account Tier Density Ranking; (5) Area: Cohort Onboarding Velocity."
-                    ),
-                    "operations_risk": (
-                        "CRITICAL ARCHETYPE MANDATE: Operational Velocity & Risk Exposure.\n"
-                        "- Visual Lens: Throughput, latency, cycle time, freight, defect/error rate, fat-tail risk.\n"
-                        "- NEVER use Date as the categorical bottleneck dimension. Use Facility, Carrier, Department, Status, or Shipper.\n"
-                        "- Required Charts: (1) Heatmap/Composed: Operational Bottleneck Matrix; (2) Histogram: Statistical Outlier Variance & Risk Tails (using quantity, freight, or cycle time); (3) Horizontal Bar: Operational Velocity & Cycle Time across units; (4) Radar: Concentration Risk Profile; (5) Line: Chronological Volatility Spikes."
-                    ),
-                    "profitability_frontier": (
-                        "CRITICAL ARCHETYPE MANDATE: Unit Economics & Profitability Frontier.\n"
-                        "- Visual Lens: Unit margins, product contribution rankings, price vs cost yield, break-even frontier.\n"
-                        "- Required Charts: (1) Horizontal Bar: Unit Contribution Margin Ranking by Product; (2) Composed: Price vs Cost/Discount Efficiency Spread; (3) Scatter: Break-Even Volume vs Margin Frontier; (4) Area: Cumulative Margin Trajectory; (5) Donut: Profit Contribution Share."
-                    ),
-                    "predictive_momentum": (
-                        "CRITICAL ARCHETYPE MANDATE: Predictive Forecast & Longitudinal Momentum.\n"
-                        "- Visual Lens: Time-series run-rate acceleration, forward forecasting, cyclicality seasonality.\n"
-                        "- Required Charts: (1) Area: Forward Momentum Trajectory with ARIMA forecast; (2) Bar: Period-over-Period Velocity Pacing; (3) Line: Cyclical Rhythm & Seasonality Waves; (4) Scatter: Velocity Acceleration vs Volume."
-                    )
-                }
-                mandate_text = archetype_mandates.get(preset_clean, "Design an elite multi-dimensional analytical dashboard.")
+                disc = cls.discover_ai_archetypes(all_dataframes, detected_rels)
+                dynamic_archetypes = disc.get("archetypes", [])
+                target_arch = None
+                for a in dynamic_archetypes:
+                    if a["id"] == preset_clean or preset_clean in a["title"].lower():
+                        target_arch = a
+                        break
+                if not target_arch:
+                    target_arch = next((a for a in dynamic_archetypes if a.get("recommended")), dynamic_archetypes[0] if dynamic_archetypes else None)
+
+                arch_title = target_arch["title"] if target_arch else "Data-Driven Operational Intelligence"
+                arch_desc = target_arch["desc"] if target_arch else "Design an elite multi-dimensional analytical dashboard."
+                arch_charts = ", ".join(target_arch["charts_planned"]) if target_arch else "Composed, Area, Donut, Scatter"
+                domain_name = disc.get("domain", "Enterprise Operations")
+
+                mandate_text = (
+                    f"DOMAIN CONTEXT: {domain_name}\n"
+                    f"DATA-DRIVEN ARCHETYPE: {arch_title}\n"
+                    f"ANALYTICAL MANDATE: {arch_desc}\n"
+                    f"TARGET CHART BLUEPRINTS: {arch_charts}\n"
+                    "FIELD USAGE: Use only real columns from the provided schema. Match x_field to categorical or date dimensions, and y_field to quantitative metrics."
+                )
 
                 user_prompt = (
                     f"Dataset Schema:\n{json.dumps(schema_summary, default=str)}\n\n"
@@ -2427,7 +3001,11 @@ class DashboardGenerator:
                 raw_resp = LLMOrchestrator.query_llm_sync(sys_prompt, user_prompt, response_format_json=True)
                 blueprint = json.loads(raw_resp)
                 chart_specs = blueprint.get("charts", [])
-                if chart_specs and len(chart_specs) >= 2:
+                is_ungrounded = (
+                    any("Primary Volume vs Efficiency" in s.get("title", "") for s in chart_specs) or
+                    all(not s.get("x_field") for s in chart_specs)
+                )
+                if chart_specs and len(chart_specs) >= 2 and not is_ungrounded:
                     charts_created = []
                     for order_idx, spec in enumerate(chart_specs[:6]):
                         tbl = spec.get("table_name")
@@ -2517,7 +3095,42 @@ class DashboardGenerator:
         if not table_names:
             return []
 
-        primary_table = cls._select_best_table_for_preset(preset_clean, all_dataframes, profiles)
+        # Match table name or columns to prompt tokens if provided
+        primary_table = None
+        if prompt_clean:
+            p_tokens = [t.lower() for t in prompt_clean.split() if len(t) > 2]
+            best_t = None
+            best_score = 0
+            for t_name in table_names:
+                t_score = sum(4 for tok in p_tokens if tok in t_name.lower())
+                p_meta = profiles.get(t_name, {})
+                t_cols = [c.lower() for c in (p_meta.get("nums", []) + p_meta.get("cats", []))]
+                for tok in p_tokens:
+                    if any(tok in c for c in t_cols):
+                        t_score += 2
+                if t_score > best_score:
+                    best_score = t_score
+                    best_t = t_name
+            if best_t and best_score > 0:
+                primary_table = best_t
+
+        # Discover dynamic archetypes tailored to this specific dataset
+        disc = cls.discover_ai_archetypes(all_dataframes, detected_rels)
+        dynamic_archetypes = disc.get("archetypes", [])
+        chosen_arch = None
+        if preset_clean:
+            for arch in dynamic_archetypes:
+                if arch["id"] == preset_clean or preset_clean in arch["title"].lower():
+                    chosen_arch = arch
+                    break
+        if not chosen_arch:
+            chosen_arch = next((a for a in dynamic_archetypes if a.get("recommended")), dynamic_archetypes[0] if dynamic_archetypes else None)
+
+        if not primary_table:
+            if chosen_arch and chosen_arch.get("target_table") and chosen_arch["target_table"] in all_dataframes:
+                primary_table = chosen_arch["target_table"]
+            else:
+                primary_table = cls._select_best_table_for_preset(preset_clean, all_dataframes, profiles)
         if not primary_table:
             primary_table = table_names[0]
 
@@ -2535,26 +3148,40 @@ class DashboardGenerator:
         # Target prompt keywords if present
         if prompt_clean:
             tokens = [t.lower() for t in prompt_clean.split() if len(t) > 2]
-            nums.sort(key=lambda col: sum(1 for t in tokens if t in col.lower()), reverse=True)
-            cats.sort(key=lambda col: sum(1 for t in tokens if t in col.lower()), reverse=True)
+            nums.sort(key=lambda col: sum(3 for t in tokens if t in col.lower()), reverse=True)
+            cats.sort(key=lambda col: sum(3 for t in tokens if t in col.lower()), reverse=True)
 
-        # Primary scale/volume metric
-        primary_metric = (rev_nums or nums)[0] if (rev_nums or nums) else (df.columns[0] if len(df.columns) > 0 else "Metric")
-        # Secondary efficiency/margin metric
-        eff_candidates = [c for c in (margin_nums or nums) if c != primary_metric]
-        efficiency_metric = eff_candidates[0] if eff_candidates else primary_metric
-        # Operational metric
-        op_candidates = [c for c in (vol_nums or op_nums or nums) if c not in (primary_metric, efficiency_metric)]
-        operational_metric = op_candidates[0] if op_candidates else primary_metric
+            primary_metric = nums[0] if nums else (df.columns[0] if len(df.columns) > 0 else "Metric")
+            eff_candidates = [c for c in nums if c != primary_metric]
+            efficiency_metric = eff_candidates[0] if eff_candidates else primary_metric
+            op_candidates = [c for c in nums if c not in (primary_metric, efficiency_metric)]
+            operational_metric = op_candidates[0] if op_candidates else primary_metric
 
-        # Primary categorical dimension
-        primary_cat = cats[0] if cats else (df.columns[0] if len(df.columns) > 0 else "Cohort")
-        # Secondary categorical dimension
-        sec_candidates = [c for c in (geos or cats) if c != primary_cat]
-        secondary_cat = sec_candidates[0] if sec_candidates else primary_cat
+            primary_cat = cats[0] if cats else (df.columns[0] if len(df.columns) > 0 else "Cohort")
+            sec_candidates = [c for c in cats if c != primary_cat]
+            secondary_cat = sec_candidates[0] if sec_candidates else primary_cat
+            date_field = dates[0] if dates else None
+        elif chosen_arch:
+            primary_metric = chosen_arch.get("y_field") or (nums[0] if nums else "Metric")
+            efficiency_metric = chosen_arch.get("secondary_y_field") or ([c for c in nums if c != primary_metric] or [primary_metric])[0]
+            op_candidates = [c for c in nums if c not in (primary_metric, efficiency_metric)]
+            operational_metric = op_candidates[0] if op_candidates else primary_metric
 
-        # Date field
-        date_field = dates[0] if dates else None
+            primary_cat = chosen_arch.get("x_field") or (cats[0] if cats else "Cohort")
+            sec_candidates = [c for c in cats if c != primary_cat]
+            secondary_cat = sec_candidates[0] if sec_candidates else primary_cat
+            date_field = chosen_arch.get("date_field") or (dates[0] if dates else None)
+        else:
+            primary_metric = (rev_nums or nums)[0] if (rev_nums or nums) else (df.columns[0] if len(df.columns) > 0 else "Metric")
+            eff_candidates = [c for c in (margin_nums or nums) if c != primary_metric]
+            efficiency_metric = eff_candidates[0] if eff_candidates else primary_metric
+            op_candidates = [c for c in (vol_nums or op_nums or nums) if c not in (primary_metric, efficiency_metric)]
+            operational_metric = op_candidates[0] if op_candidates else primary_metric
+
+            primary_cat = cats[0] if cats else (df.columns[0] if len(df.columns) > 0 else "Cohort")
+            sec_candidates = [c for c in (geos or cats) if c != primary_cat]
+            secondary_cat = sec_candidates[0] if sec_candidates else primary_cat
+            date_field = dates[0] if dates else None
 
         charts_created: List[DashboardChart] = []
         idx = 0
@@ -2689,6 +3316,8 @@ class DashboardGenerator:
         if sheet:
             if prompt_clean:
                 sheet.title = f"AI Agent: {prompt_clean[:38]}..." if len(prompt_clean) > 40 else f"AI Agent: {prompt_clean}"
+            elif chosen_arch and (preset_clean in ["auto", "", "none", "executive", "ai_agent", "custom_agent"] or preset_clean.startswith("arch_") or preset_clean not in ["revenue_growth", "customer_cohort", "operations_risk", "profitability_frontier", "predictive_momentum", "cross_entity_matrix"]):
+                sheet.title = f"AI Archetype: {chosen_arch['title']}"
             elif preset_clean == "revenue_growth":
                 sheet.title = "AI Agent: Revenue & Growth Intelligence"
             elif preset_clean == "customer_cohort":
@@ -2697,8 +3326,10 @@ class DashboardGenerator:
                 sheet.title = "AI Agent: Operational Velocity & Risk"
             elif preset_clean == "profitability_frontier":
                 sheet.title = "AI Agent: Unit Economics & Margin Frontier"
+            elif preset_clean == "predictive_momentum":
+                sheet.title = "AI Agent: Predictive Momentum & Trajectory"
             else:
-                sheet.title = "AI Agent: Executive Pulse & Strategic Synthesis"
+                sheet.title = f"AI Archetype: {chosen_arch['title']}" if chosen_arch else "AI Agent: Autonomous Data Synthesis"
 
             sheet.business_questions = cls._generate_business_questions(
                 sheet.title, [primary_table], all_dataframes, profiles, sheet_type=preset_clean, preset=preset_clean, prompt=prompt_clean

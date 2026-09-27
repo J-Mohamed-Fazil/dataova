@@ -102,12 +102,29 @@ class ForecastEngine:
         return {"date_col": date_col, "metric_col": metric_col}
 
     @staticmethod
+    def get_z_score(confidence_level: float) -> float:
+        """Calculates standard normal quantile z for a two-tailed confidence interval (e.g. 95% -> 1.96)."""
+        cl = max(1.0, min(99.9, float(confidence_level)))
+        try:
+            from scipy.stats import norm
+            p = 0.5 + (cl / 200.0)
+            return float(norm.ppf(p))
+        except Exception:
+            presets = {
+                5: 0.063, 10: 0.126, 20: 0.253, 30: 0.385, 40: 0.524,
+                50: 0.674, 60: 0.842, 70: 1.036, 80: 1.282, 90: 1.645,
+                95: 1.960, 99: 2.576
+            }
+            return presets.get(int(round(cl)), 1.96)
+
+    @staticmethod
     def generate_forecast(
         df: pd.DataFrame,
         metric_col: Optional[str] = None,
         date_col: Optional[str] = None,
         horizon: int = 6,
-        agg_type: str = "sum"
+        agg_type: str = "sum",
+        confidence_level: float = 95.0
     ) -> Dict[str, Any]:
         """
         Executes an end-to-end predictive forecast on the dataset.
@@ -279,9 +296,13 @@ class ForecastEngine:
                 baseline_val = max(0.0, baseline_val)
 
             # Confidence bounds: expanding uncertainty over time
+            uncertainty_growth = math.sqrt(h) * residual_std
+            z_custom = ForecastEngine.get_z_score(confidence_level)
+            upper_custom = baseline_val + z_custom * uncertainty_growth
+            lower_custom = max(0.0, baseline_val - z_custom * uncertainty_growth) if np.all(y >= 0) else baseline_val - z_custom * uncertainty_growth
+
             z_80 = 1.28
             z_95 = 1.96
-            uncertainty_growth = math.sqrt(h) * residual_std
 
             upper_80 = baseline_val + z_80 * uncertainty_growth
             lower_80 = max(0.0, baseline_val - z_80 * uncertainty_growth) if np.all(y >= 0) else baseline_val - z_80 * uncertainty_growth
@@ -301,6 +322,9 @@ class ForecastEngine:
                 "period": future_label,
                 "step": h,
                 "forecast": round(baseline_val, 2),
+                "upper_bound": round(upper_custom, 2),
+                "lower_bound": round(lower_custom, 2),
+                "uncertainty_growth": round(float(uncertainty_growth), 4),
                 "upper_95": round(upper_95, 2),
                 "lower_95": round(lower_95, 2),
                 "upper_80": round(upper_80, 2),
@@ -365,6 +389,7 @@ class ForecastEngine:
             "date_col": final_date or "Chronological Index",
             "frequency": freq_name,
             "horizon": horizon,
+            "confidence_level": round(float(confidence_level), 1),
             "historical_count": n,
             "historical": historical_points,
             "forecast": forecast_points,

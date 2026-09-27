@@ -200,37 +200,37 @@ class ExecutiveReportGenerator:
                 "delta": "+33.45%",
                 "is_positive": True,
                 "icon": "mouse-pointer",
-                "explanation": "More people are joining and engaging with the service."
+                "explanation": "Reflects healthy month-over-month adoption, with new participants actively enrolling and contributing to overall organizational momentum."
             },
             {
                 "id": "driver-2",
-                "title": "Streams",
+                "title": "Total Activity",
                 "plain_title": "Total Actions Completed",
                 "value": "47,095" if not num_cols else f"{int(primary_df[num_cols[0]].sum() if not primary_df.empty else 47095):,}",
                 "delta": "-12.45%",
                 "is_positive": False,
                 "icon": "clock",
-                "explanation": "Slight decrease in total interactions compared to last month."
+                "explanation": "Represents cumulative actions completed across the period; minor moderation reflects seasonal normalization rather than structural decline."
             },
             {
                 "id": "driver-3",
-                "title": "Engagement",
+                "title": "Engagement Index",
                 "plain_title": "Active Participation",
                 "value": "25.81",
                 "delta": "+62.10%",
                 "is_positive": True,
                 "icon": "users",
-                "explanation": "Participants are significantly more active and involved."
+                "explanation": "Measures recurring interaction depth, showing that enrolled participants are significantly more engaged in daily activities."
             },
             {
                 "id": "driver-4",
-                "title": "Avg. Watch time",
+                "title": "Average Duration",
                 "plain_title": "Average Time Spent",
                 "value": "45.42",
                 "delta": "+4.46%",
                 "is_positive": True,
                 "icon": "play",
-                "explanation": "People are spending more uninterrupted time exploring content."
+                "explanation": "Indicates the typical duration spent per session or task, showing steady and uninterrupted focus across user workflows."
             }
         ]
 
@@ -339,62 +339,85 @@ class ExecutiveReportGenerator:
         # 9. Human Story Lead Summary
         positive_sample = int(max(total_rows * 0.85, 850)) if total_rows > 0 else 850
         human_story_summary = (
-            f"Out of {max(total_rows, 1000):,} community participants and records tracked in {dataset_name}, "
-            f"over {positive_sample:,} (85%) are seeing steady, positive improvements with consistent month-over-month growth."
+            f"This executive review analyzes {max(total_rows, 1000):,} tracked records and participant activities in {dataset_name}. "
+            f"Overall health across the dataset is exceptionally strong, with over {positive_sample:,} records (approximately 85%) demonstrating consistent progress and healthy performance indicators. "
+            f"Key operational workflows are delivering dependable outcomes, providing leadership with high-confidence visibility into both day-to-day operations and strategic direction."
         )
 
         # 10. Statistical Business Insights & Executive Summary
         executive_summary = (
-            f"Executive board telemetry across {total_rows:,} records in {dataset_name} reveals resilient operational volume "
-            f"with top-quartile performance pacing at +24.8% MoM. Capital allocation efficiency remains well-calibrated across key cohorts."
+            f"This executive performance review analyzes {total_rows:,} records across {dataset_name}, highlighting steady operational momentum and healthy cross-functional output. "
+            f"Key performance indicators have sustained positive trajectory pacing at +24.8% relative to baseline benchmarks, supported by reliable activity across primary operational categories. "
+            f"Resource allocation remains well-aligned with organizational goals, maintaining stable delivery throughput while keeping operational variance and concentration risks within safe thresholds. "
+            f"Strategic priorities for the upcoming cycle focus on expanding high-performing initiatives, streamlining administrative turnaround times, and sustaining rigorous data verification."
         )
 
         plain_summary = (
-            f"Across {total_rows:,} records in {dataset_name}, our overall progress is strong. "
-            f"Key metrics grew by nearly 25% this month, with operations running smoothly and resources reaching the right places."
+            f"Across all {total_rows:,} records tracked in {dataset_name}, overall performance and operational health remain strong and dependable. "
+            f"The core metrics increased by nearly 25% over the past period, reflecting steady participation and healthy delivery across our primary initiatives. "
+            f"Workflows are running smoothly with no major bottlenecks, ensuring that resources and support are reaching participants efficiently. "
+            f"Going forward, leadership can build upon this solid foundation by expanding the most successful programs and continuing to streamline administrative processes."
         )
 
         business_insights = [
             {
-                "tag": "Key Growth",
+                "tag": "Key Growth Driver",
                 "plain_tag": "Biggest Win",
-                "title": "High-Yield Customer Cohort Expansion",
+                "title": "Strong Core Program Participation & Output",
                 "plain_title": "More People Benefiting from Core Programs",
-                "detail": f"Top segment volume accounts for a significant portion of primary metric momentum across {dataset_name}.",
-                "plain_detail": f"Our main programs are reaching more people every week, driving over 80% of our total positive impact.",
+                "detail": f"Analysis of {dataset_name} demonstrates that primary operational activities generate the majority of total output, maintaining an 18.4% efficiency advantage compared to historical baselines.",
+                "plain_detail": f"Our main programs and flagship initiatives are reaching more participants each week, driving over 80% of our total positive impact while maintaining high satisfaction and quality standards.",
                 "impact": "+18.4% Efficiency",
                 "plain_impact": "+18% More People Helped",
                 "is_positive": True
             },
             {
-                "tag": "Operational Alpha",
+                "tag": "Operational Delivery",
                 "plain_tag": "Faster Service",
-                "title": "Process Velocity Optimization",
+                "title": "Turnaround Velocity & Process Stabilization",
                 "plain_title": "Faster Delivery and Shorter Wait Times",
-                "detail": "Standard deviation stabilization indicates tightening cycle times across middle-tier deliverables.",
-                "plain_detail": "Wait times for support and service have dropped noticeably as team workflows become smoother.",
+                "detail": "Standard deviation across key delivery milestones has contracted by 14.2%, demonstrating increased predictability, fewer operational delays, and stabilized execution across all tiers.",
+                "plain_detail": "Turnaround times for key services have improved significantly as team workflows became more streamlined, reducing backlogs and ensuring that requests are fulfilled without unnecessary delays.",
                 "impact": "-14.2% Variance",
                 "plain_impact": "14% Faster Turnaround",
                 "is_positive": True
             },
             {
-                "tag": "Strategic Focus",
-                "plain_tag": "Area to Watch",
-                "title": "Long-tail Concentration Risk",
+                "tag": "Strategic Opportunity",
+                "plain_tag": "Area to Support",
+                "title": "Targeted Support for Emerging Cohorts",
                 "plain_title": "Supporting Smaller Community Groups",
-                "detail": "Lower tier variance requires diversified resource allocation to maintain steady quarterly run-rate.",
-                "plain_detail": "A few smaller groups need additional resources so they don't fall behind the larger programs.",
-                "impact": "Low Risk",
-                "plain_impact": "Action Planned",
+                "detail": "Secondary segments exhibit minor performance dispersion, presenting an opportunity for targeted capacity building to elevate overall portfolio resilience and prevent reliance on top cohorts alone.",
+                "plain_detail": "While our main programs are thriving, several smaller initiatives and community groups will benefit from dedicated resources and guidance to help them grow at the same healthy pace.",
+                "impact": "Controlled Risk",
+                "plain_impact": "Action Plan Ready",
                 "is_positive": False
             }
         ]
 
         # 11. Clear Action Steps (Page 3 Action Items)
         action_steps = [
-            {"id": "act-1", "title": "Expand High-Demand Programs", "description": "Allocate additional resources to the top 2 performing community initiatives.", "due_date": "Next 30 Days", "status": "In Progress"},
-            {"id": "act-2", "title": "Streamline Support Onboarding", "description": "Simplify the intake process to reduce onboarding time from 5 days to 2 days.", "due_date": "Next 60 Days", "status": "Ready"},
-            {"id": "act-3", "title": "Monthly Community Check-In", "description": "Publish plain-language quarterly update for all participants and stakeholders.", "due_date": "Ongoing", "status": "Scheduled"}
+            {
+                "id": "act-1",
+                "title": "Scale High-Demand Programs",
+                "description": "Allocate additional operational capacity and budget to the top two performing initiatives to meet growing participant demand over the next 30 days.",
+                "due_date": "Next 30 Days",
+                "status": "In Progress"
+            },
+            {
+                "id": "act-2",
+                "title": "Streamline Onboarding Workflows",
+                "description": "Simplify the intake and review documentation steps, reducing participant onboarding turnaround from 5 business days down to 2 business days.",
+                "due_date": "Next 60 Days",
+                "status": "Ready"
+            },
+            {
+                "id": "act-3",
+                "title": "Publish Plain-Language Stakeholder Brief",
+                "description": "Distribute a quarterly transparent summary to all department leaders and community stakeholders highlighting milestones, verified data, and upcoming goals.",
+                "due_date": "Ongoing",
+                "status": "Scheduled"
+            }
         ]
 
         # 12. 3-Page Narrative Flow Schema
@@ -487,15 +510,17 @@ class ExecutiveReportGenerator:
                 sample_records = primary_df.head(4).to_dict(orient="records") if not primary_df.empty else []
 
                 system_prompt = (
-                    "You are Datova Executive AI, an elite C-Suite strategy advisor. "
-                    "Analyze the provided dataset summary and generate high-impact, boardroom-ready executive dashboard data. "
+                    "You are Datova Executive AI, an elite strategic advisor. "
+                    "Analyze the provided dataset summary and generate high-impact executive dashboard data. "
+                    "Write in normal, clear, professional English with complete, informative explanations. "
+                    "Avoid overly brief 1-line bullet points or unnecessary jargon. Keep explanations accessible to any stakeholder. "
                     "You MUST respond ONLY with valid JSON matching this exact structure:\n"
                     "{\n"
-                    '  "executive_summary": "2-sentence strategic summary for boardroom",\n'
+                    '  "executive_summary": "A comprehensive 3-to-4 sentence professional executive overview explaining operational trends, key performance drivers, and high-level strategic takeaway.",\n'
                     '  "business_insights": [\n'
-                    '    {"tag": "Revenue Unlock", "title": "...", "detail": "...", "impact": "+$1.2M ARR", "is_positive": true},\n'
-                    '    {"tag": "Operational Alpha", "title": "...", "detail": "...", "impact": "+24% Velocity", "is_positive": true},\n'
-                    '    {"tag": "Strategic Risk", "title": "...", "detail": "...", "impact": "-8% Churn", "is_positive": false}\n'
+                    '    {"tag": "Key Growth Driver", "title": "...", "detail": "A clear, complete 2-sentence explanation of what the metric indicates and why it matters to the organization.", "impact": "+$1.2M ARR", "is_positive": true},\n'
+                    '    {"tag": "Operational Delivery", "title": "...", "detail": "A clear, complete 2-sentence explanation of workflow improvements and delivery consistency.", "impact": "+24% Velocity", "is_positive": true},\n'
+                    '    {"tag": "Strategic Opportunity", "title": "...", "detail": "A clear, complete 2-sentence explanation of areas needing support and actionable risk mitigation.", "impact": "Controlled Risk", "is_positive": false}\n'
                     "  ],\n"
                     '  "top_kpis": [\n'
                     '    {"title": "...", "value": "$...", "delta": "+18.2%", "is_positive": true, "icon": "clock"}\n'
@@ -509,7 +534,7 @@ class ExecutiveReportGenerator:
                     f"Columns: {json.dumps(col_info)}\n"
                     f"Sample Rows: {json.dumps(sample_records, default=str)}\n"
                     f"Custom Strategic Focus: {custom_prompt or 'Standard Executive Boardroom Review'}\n"
-                    "Synthesize realistic, deeply relevant business intelligence."
+                    "Synthesize realistic, deeply relevant business intelligence using complete, informative sentences."
                 )
 
                 llm_response = await LLMOrchestrator.query_llm(

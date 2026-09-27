@@ -217,6 +217,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenUpload, onOpenTutorial, on
                   >
                     <Sliders className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                     <span>What-If Scenario</span>
+                    <span className="ml-auto text-[9px] font-mono text-cyan-400 bg-cyan-500/15 px-1.5 py-0.5 rounded border border-cyan-500/30">SIM</span>
                   </button>
                 </>
               )}
