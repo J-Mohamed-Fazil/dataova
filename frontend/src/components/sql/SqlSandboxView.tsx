@@ -103,6 +103,8 @@ export const SqlSandboxView: React.FC = () => {
   const [isTranslating, setIsTranslating] = useState<boolean>(false);
   const [isAutoFixing, setIsAutoFixing] = useState<boolean>(false);
   const [copied, setCopied] = useState<boolean>(false);
+  const [copiedAnswer, setCopiedAnswer] = useState<boolean>(false);
+  const [insertedColNotice, setInsertedColNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // Suggested plain English questions
@@ -209,6 +211,15 @@ export const SqlSandboxView: React.FC = () => {
 
   const handleInsertIdentifier = (text: string) => {
     setSqlCode(prev => prev + ` [${text}]`);
+    setInsertedColNotice(`Inserted [${text}]`);
+    setTimeout(() => setInsertedColNotice(null), 2200);
+  };
+
+  const handleCopyAnswer = () => {
+    if (!queryResult?.summary) return;
+    navigator.clipboard.writeText(queryResult.summary.replace(/\*\*/g, ''));
+    setCopiedAnswer(true);
+    setTimeout(() => setCopiedAnswer(false), 2000);
   };
 
   const handleCopyCode = () => {
@@ -318,7 +329,7 @@ export const SqlSandboxView: React.FC = () => {
       {/* Interactive EER Schema Inspector Drawer */}
       {showSchemaDrawer && (
         <div className="glass-3d-card rounded-2xl p-4 sm:p-5 shadow-xl border border-slate-700/80 space-y-3 bg-gradient-to-b from-slate-900/90 to-slate-950/90 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+          <div className="flex items-center justify-between border-b border-slate-800 pb-2.5 flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4 text-cyan-400" />
               <span className="text-xs font-bold text-white tracking-wide uppercase font-mono">
@@ -328,9 +339,17 @@ export const SqlSandboxView: React.FC = () => {
                 (Click any column to insert into query)
               </span>
             </div>
-            <span className="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-800/60">
-              {tables.length} Table{tables.length > 1 ? 's' : ''} Mounted
-            </span>
+            <div className="flex items-center gap-2">
+              {insertedColNotice && (
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[10px] font-mono animate-in fade-in shadow-sm font-semibold flex items-center gap-1">
+                  <Check className="w-3 h-3 text-emerald-400" />
+                  {insertedColNotice}
+                </span>
+              )}
+              <span className="text-[11px] font-mono text-cyan-400 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-800/60">
+                {tables.length} Table{tables.length > 1 ? 's' : ''} Mounted
+              </span>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
@@ -454,26 +473,37 @@ export const SqlSandboxView: React.FC = () => {
       {queryResult?.summary && (
         <div className="glass-3d-card rounded-2xl p-4 sm:p-5 shadow-2xl relative overflow-hidden border border-cyan-500/40 bg-gradient-to-r from-cyan-950/30 via-slate-900/60 to-blue-950/30 animate-in fade-in slide-in-from-top duration-300">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0 mt-0.5">
+            <div className="p-2.5 rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 shrink-0 mt-0.5 shadow-sm">
               <MessageSquareQuote className="w-5 h-5" />
             </div>
             <div className="space-y-1.5 flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 bg-cyan-900/40 border border-cyan-700/50 px-2 py-0.5 rounded-full font-mono">
-                  Direct Answer
-                </span>
-                {activeQuestion && (
-                  <span className="text-xs text-slate-300 font-medium truncate max-w-md">
-                    &ldquo;{activeQuestion}&rdquo;
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-cyan-400 bg-cyan-900/40 border border-cyan-700/50 px-2 py-0.5 rounded-full font-mono">
+                    Direct Answer
                   </span>
-                )}
-                {lastExplanation && (
-                  <span className="text-[11px] text-slate-400 italic">
-                    &bull; {lastExplanation}
-                  </span>
-                )}
+                  {activeQuestion && (
+                    <span className="text-xs text-slate-300 font-medium truncate max-w-md">
+                      &ldquo;{activeQuestion}&rdquo;
+                    </span>
+                  )}
+                  {lastExplanation && (
+                    <span className="text-[11px] text-slate-400 italic">
+                      &bull; {lastExplanation}
+                    </span>
+                  )}
+                </div>
+
+                <button
+                  onClick={handleCopyAnswer}
+                  className="px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-cyan-300 border border-slate-700/60 transition shadow-sm flex items-center gap-1 text-[11px] font-medium"
+                  title="Copy Direct Plain English Answer"
+                >
+                  {copiedAnswer ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copiedAnswer ? 'Copied' : 'Copy Answer'}</span>
+                </button>
               </div>
-              <p className="text-sm font-semibold text-white leading-relaxed">
+              <p className="text-sm font-semibold text-white leading-relaxed pt-0.5">
                 {queryResult.summary.split('**').map((chunk, i) => 
                   i % 2 === 1 ? <strong key={i} className="text-cyan-300 font-bold">{chunk}</strong> : chunk
                 )}
@@ -579,31 +609,51 @@ export const SqlSandboxView: React.FC = () => {
           </div>
         )}
 
-        {/* Text Area Code Editor */}
-        <div className="relative">
-          {activeTab === 'sql' ? (
-            <textarea
-              value={sqlCode}
-              onChange={(e) => setSqlCode(e.target.value)}
-              onKeyDown={(e) => {
-                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                  e.preventDefault();
-                  handleExecuteSql();
-                }
-              }}
-              rows={6}
-              spellCheck={false}
-              className="w-full bg-slate-950/90 border border-slate-800 rounded-xl p-4 font-mono text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 transition leading-relaxed resize-y shadow-inner"
-            />
-          ) : (
-            <textarea
-              value={pandasCode}
-              onChange={(e) => setPandasCode(e.target.value)}
-              rows={6}
-              spellCheck={false}
-              className="w-full bg-slate-950/90 border border-slate-800 rounded-xl p-4 font-mono text-xs text-indigo-200 focus:outline-none focus:border-indigo-500 transition leading-relaxed resize-y shadow-inner"
-            />
-          )}
+        {/* Text Area Code Editor with macOS Terminal Chrome */}
+        <div className="rounded-xl overflow-hidden border border-slate-800 shadow-inner">
+          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600 inline-block shadow-sm" />
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600 inline-block shadow-sm" />
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600 inline-block shadow-sm" />
+              </div>
+              <span className="text-slate-300 font-semibold pl-2">
+                {activeTab === 'sql' ? 'interactive_sandbox.sql' : 'pandas_analysis.py'}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 text-[10px] text-slate-400">
+              <span>{(activeTab === 'sql' ? sqlCode : pandasCode).split('\n').length} lines</span>
+              <span>{(activeTab === 'sql' ? sqlCode : pandasCode).length} chars</span>
+              <span className="text-cyan-400 font-bold uppercase">{activeTab}</span>
+            </div>
+          </div>
+
+          <div className="relative">
+            {activeTab === 'sql' ? (
+              <textarea
+                value={sqlCode}
+                onChange={(e) => setSqlCode(e.target.value)}
+                onKeyDown={(e) => {
+                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    e.preventDefault();
+                    handleExecuteSql();
+                  }
+                }}
+                rows={6}
+                spellCheck={false}
+                className="w-full bg-slate-950/95 p-4 font-mono text-xs text-cyan-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition leading-relaxed resize-y"
+              />
+            ) : (
+              <textarea
+                value={pandasCode}
+                onChange={(e) => setPandasCode(e.target.value)}
+                rows={6}
+                spellCheck={false}
+                className="w-full bg-slate-950/95 p-4 font-mono text-xs text-indigo-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition leading-relaxed resize-y"
+              />
+            )}
+          </div>
         </div>
       </div>
 
