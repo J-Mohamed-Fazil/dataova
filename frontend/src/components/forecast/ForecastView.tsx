@@ -824,22 +824,7 @@ export const ForecastView: React.FC = () => {
               ))}
             </div>
 
-            {/* Quick Bandwidth Presets Toolbar Chips */}
-            <div className="hidden xl:flex items-center gap-1 bg-[#060c18] p-0.5 rounded-xl border border-blue-950">
-              {[20, 50, 80, 95].map(bw => (
-                <button
-                  key={bw}
-                  onClick={() => handleBandwidthSelect(bw)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-mono font-bold transition ${
-                    selectedBandwidth === bw
-                      ? 'bg-cyan-500 text-slate-950 shadow-sm shadow-cyan-400/30'
-                      : 'text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {bw}%
-                </button>
-              ))}
-            </div>
+
 
             {/* Confidence Band Visibility Toggle */}
             <button
