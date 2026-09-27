@@ -22,7 +22,6 @@ import {
   ChevronDown,
   ChevronUp,
   History,
-  Wand2,
   FileJson,
   Search,
   PieChart as PieChartIcon,
@@ -190,23 +189,6 @@ export const SqlSandboxView: React.FC = () => {
     } finally {
       setIsAutoFixing(false);
     }
-  };
-
-  const handleFormatSql = () => {
-    let formatted = sqlCode
-      .replace(/\s+/g, ' ')
-      .replace(/\bSELECT\b/gi, '\nSELECT')
-      .replace(/\bFROM\b/gi, '\nFROM')
-      .replace(/\b(LEFT|RIGHT|INNER|FULL)?\s*JOIN\b/gi, '\nJOIN')
-      .replace(/\bON\b/gi, ' ON')
-      .replace(/\bWHERE\b/gi, '\nWHERE')
-      .replace(/\bGROUP BY\b/gi, '\nGROUP BY')
-      .replace(/\bHAVING\b/gi, '\nHAVING')
-      .replace(/\bORDER BY\b/gi, '\nORDER BY')
-      .replace(/\bLIMIT\b/gi, '\nLIMIT')
-      .trim();
-    if (!formatted.endsWith(';')) formatted += ';';
-    setSqlCode(formatted);
   };
 
   const handleInsertIdentifier = (text: string) => {
@@ -539,17 +521,6 @@ export const SqlSandboxView: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 flex-wrap">
-            {activeTab === 'sql' && (
-              <button
-                onClick={handleFormatSql}
-                className="btn-3d-secondary px-3 py-1.5 rounded-xl text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1 shadow-sm"
-                title="Format & Beautify SQL"
-              >
-                <Wand2 className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Format</span>
-              </button>
-            )}
-
             <button
               onClick={handleCopyCode}
               className="btn-3d-secondary px-3 py-1.5 rounded-xl text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1 shadow-sm"
@@ -609,51 +580,31 @@ export const SqlSandboxView: React.FC = () => {
           </div>
         )}
 
-        {/* Text Area Code Editor with macOS Terminal Chrome */}
-        <div className="rounded-xl overflow-hidden border border-slate-800 shadow-inner">
-          <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono text-slate-400">
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-rose-500/80 border border-rose-600 inline-block shadow-sm" />
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500/80 border border-amber-600 inline-block shadow-sm" />
-                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/80 border border-emerald-600 inline-block shadow-sm" />
-              </div>
-              <span className="text-slate-300 font-semibold pl-2">
-                {activeTab === 'sql' ? 'interactive_sandbox.sql' : 'pandas_analysis.py'}
-              </span>
-            </div>
-            <div className="flex items-center gap-3 text-[10px] text-slate-400">
-              <span>{(activeTab === 'sql' ? sqlCode : pandasCode).split('\n').length} lines</span>
-              <span>{(activeTab === 'sql' ? sqlCode : pandasCode).length} chars</span>
-              <span className="text-cyan-400 font-bold uppercase">{activeTab}</span>
-            </div>
-          </div>
-
-          <div className="relative">
-            {activeTab === 'sql' ? (
-              <textarea
-                value={sqlCode}
-                onChange={(e) => setSqlCode(e.target.value)}
-                onKeyDown={(e) => {
-                  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                    e.preventDefault();
-                    handleExecuteSql();
-                  }
-                }}
-                rows={6}
-                spellCheck={false}
-                className="w-full bg-slate-950/95 p-4 font-mono text-xs text-cyan-200 focus:outline-none focus:ring-1 focus:ring-cyan-500/50 transition leading-relaxed resize-y"
-              />
-            ) : (
-              <textarea
-                value={pandasCode}
-                onChange={(e) => setPandasCode(e.target.value)}
-                rows={6}
-                spellCheck={false}
-                className="w-full bg-slate-950/95 p-4 font-mono text-xs text-indigo-200 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition leading-relaxed resize-y"
-              />
-            )}
-          </div>
+        {/* Text Area Code Editor */}
+        <div className="relative">
+          {activeTab === 'sql' ? (
+            <textarea
+              value={sqlCode}
+              onChange={(e) => setSqlCode(e.target.value)}
+              onKeyDown={(e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                  e.preventDefault();
+                  handleExecuteSql();
+                }
+              }}
+              rows={6}
+              spellCheck={false}
+              className="w-full bg-slate-950/90 border border-slate-800 rounded-xl p-4 font-mono text-xs text-cyan-200 focus:outline-none focus:border-cyan-500 transition leading-relaxed resize-y shadow-inner"
+            />
+          ) : (
+            <textarea
+              value={pandasCode}
+              onChange={(e) => setPandasCode(e.target.value)}
+              rows={6}
+              spellCheck={false}
+              className="w-full bg-slate-950/90 border border-slate-800 rounded-xl p-4 font-mono text-xs text-indigo-200 focus:outline-none focus:border-indigo-500 transition leading-relaxed resize-y shadow-inner"
+            />
+          )}
         </div>
       </div>
 
