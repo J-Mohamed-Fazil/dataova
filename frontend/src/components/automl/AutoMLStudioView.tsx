@@ -497,19 +497,19 @@ print("Champion Prediction (${automlResult.target_column}):", prediction[0])
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-start gap-4">
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-tr from-cyan-600 via-blue-600 to-indigo-600 text-white shadow-xl shadow-cyan-600/30 border border-cyan-400/30">
-              <BrainCircuit className="w-7 h-7 sm:w-8 sm:h-8" />
+            <div className="dept-section-icon dept-section-icon-cyan" style={{ width: '3rem', height: '3rem', borderRadius: '1rem' }}>
+              <BrainCircuit className="w-6 h-6 text-cyan-300" />
             </div>
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
+                <h1 className="view-header-title text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
                   AutoML & Econometric Studio
                 </h1>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/40 shadow-sm flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-cyan-400 animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md badge-neon-cyan shadow-sm flex items-center gap-1.5">
+                  <span className="status-dot-live" />
                   Autonomous ML v3.4
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                   Ready to Benchmark
                 </span>
               </div>

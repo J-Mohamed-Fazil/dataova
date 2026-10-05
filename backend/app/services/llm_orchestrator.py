@@ -119,17 +119,24 @@ class LLMOrchestrator:
     async def query_llm(
         system_prompt: str,
         user_prompt: str,
-        response_format_json: bool = False
+        response_format_json: bool = False,
+        api_key: Optional[str] = None
     ) -> str:
         provider = LLMOrchestrator.get_active_provider()
+        user_key = (api_key or "").strip()
+        if user_key:
+            if user_key.startswith("AIza") or len(user_key) == 39:
+                provider = "gemini"
+            elif user_key.startswith("sk-"):
+                provider = "openai"
 
         # 1. Google Gemini (Gemini 2.0 Flash / 2.5 Flash / Flash Latest)
         if provider == "gemini":
-            if time.time() < LLMOrchestrator._gemini_cooldown_until:
+            gemini_key = user_key or getattr(settings, "effective_gemini_key", settings.GEMINI_API_KEY)
+            if not user_key and time.time() < LLMOrchestrator._gemini_cooldown_until:
                 logger.info("Gemini provider currently in cooldown period. Using high-speed cognitive fallback.")
                 return LLMOrchestrator._fallback_reasoner(system_prompt, user_prompt, response_format_json)
             try:
-                gemini_key = getattr(settings, "effective_gemini_key", settings.GEMINI_API_KEY)
                 models_to_try = [
                     settings.GEMINI_MODEL or "gemini-2.5-flash",
                     "gemini-2.5-flash",
@@ -168,7 +175,8 @@ class LLMOrchestrator:
                             else:
                                 logger.warning(f"Gemini {model_name} returned {resp.status_code}: {resp.text[:120]}")
                                 if resp.status_code in (429, 401, 403):
-                                    LLMOrchestrator._gemini_cooldown_until = time.time() + 180
+                                    if not user_key:
+                                        LLMOrchestrator._gemini_cooldown_until = time.time() + 180
                                     logger.warning("Gemini API quota exhausted (429/401). Fast-failing immediately to fallback.")
                                     break
                                 if resp.status_code == 503:
@@ -181,9 +189,9 @@ class LLMOrchestrator:
         # 2. OpenAI (GPT-4o, GPT-4o-mini, o3-mini, o1, gpt-4.5) with multi-model fallback cascade
         elif provider == "openai":
             try:
-                api_key = settings.OPENAI_API_KEY.strip()
+                open_key = (user_key or settings.OPENAI_API_KEY).strip()
                 headers = {
-                    "Authorization": f"Bearer {api_key}",
+                    "Authorization": f"Bearer {open_key}",
                     "Content-Type": "application/json"
                 }
 

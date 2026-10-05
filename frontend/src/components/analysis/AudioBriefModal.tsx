@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import {
   X,
   Play,
@@ -17,10 +17,23 @@ import {
   HelpCircle,
   SkipBack,
   SkipForward,
-  Mic
+  Mic,
+  Moon,
+  Copy,
+  Check,
+  Search,
+  Filter,
+  Download,
+  ChevronDown,
+  ChevronUp,
+  Activity,
+  Layers,
+  Award,
+  ShieldAlert
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { AudioBriefResponse, AudioDialogueTurn } from '../../types';
+import { RobotPodcastStudio } from './RobotPodcastStudio';
 
 interface AudioBriefModalProps {
   datasetId: string;
@@ -92,11 +105,20 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
   const [volume, setVolume] = useState<number>(1.0);
   const [isMuted, setIsMuted] = useState<boolean>(false);
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [selectedAlexVoice, setSelectedAlexVoice] = useState<string>('');
-  const [selectedMorganVoice, setSelectedMorganVoice] = useState<string>('');
+  const [selectedLunaVoice, setSelectedLunaVoice] = useState<string>('');
+  const [selectedNovaVoice, setSelectedNovaVoice] = useState<string>('');
+  const [lunaPitch, setLunaPitch] = useState<number>(1.15);
+  const [novaPitch, setNovaPitch] = useState<number>(0.92);
   const [showSettings, setShowSettings] = useState<boolean>(false);
   const [testStatus, setTestStatus] = useState<string | null>(null);
   const [speechNotice, setSpeechNotice] = useState<string | null>(null);
+
+  // Enhanced UI State
+  const [viewMode, setViewMode] = useState<'split' | 'studio' | 'transcript'>('split');
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [speakerFilter, setSpeakerFilter] = useState<'all' | 'luna' | 'nova' | 'caution'>('all');
+  const [showKeyTakeaways, setShowKeyTakeaways] = useState<boolean>(false);
+  const [copiedScript, setCopiedScript] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animFrameRef = useRef<number | null>(null);
@@ -147,14 +169,14 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
     }
   }, [updateVoices]);
 
-  // Resolve best voices for Alex & Morgan
+  // Resolve best voices for Luna (Inquisitive Moon Robot) & Nova (Core Data Oracle Robot)
   const resolveVoices = useCallback(() => {
     const list = voices.length > 0
       ? voices
       : (typeof window !== 'undefined' && 'speechSynthesis' in window ? window.speechSynthesis.getVoices() || [] : []);
 
-    let alexV = list.find((v) => v.name === selectedAlexVoice);
-    let morganV = list.find((v) => v.name === selectedMorganVoice);
+    let lunaV = list.find((v) => v.name === selectedLunaVoice);
+    let novaV = list.find((v) => v.name === selectedNovaVoice);
 
     const enVoices = list.filter((v) =>
       v.lang.startsWith('en') ||
@@ -162,24 +184,30 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
     );
     const pool = enVoices.length > 0 ? enVoices : list;
 
-    if (!alexV && pool.length > 0) {
-      alexV = pool.find((v) =>
+    if (!lunaV && pool.length > 0) {
+      lunaV = pool.find((v) =>
         /female|zira|samantha|jenny|heera|neerja|victoria|karen|catherine/i.test(v.name)
       ) || pool[0];
     }
 
-    if (!morganV && pool.length > 0) {
-      morganV = pool.find((v) =>
-        v.name !== alexV?.name &&
+    if (!novaV && pool.length > 0) {
+      novaV = pool.find((v) =>
+        v.name !== lunaV?.name &&
         /male|david|george|guy|mark|ravi|prabhat|daniel|alex|richard/i.test(v.name)
       );
-      if (!morganV) {
-        morganV = pool.find((v) => v.name !== alexV?.name) || alexV;
+      if (!novaV) {
+        novaV = pool.find((v) => v.name !== lunaV?.name) || lunaV;
       }
     }
 
-    return { alexVoice: alexV, morganVoice: morganV, pool: list };
-  }, [voices, selectedAlexVoice, selectedMorganVoice]);
+    return {
+      lunaVoice: lunaV,
+      novaVoice: novaV,
+      alexVoice: lunaV,
+      morganVoice: novaV,
+      pool: list
+    };
+  }, [voices, selectedLunaVoice, selectedNovaVoice]);
 
   // Fetch audio briefing script
   useEffect(() => {
@@ -225,7 +253,7 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    let bars = Array.from({ length: 42 }, () => Math.random() * 16 + 4);
+    let bars = Array.from({ length: 36 }, () => Math.random() * 12 + 4);
 
     const renderBars = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -239,18 +267,18 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
         let targetHeight = height;
         if (isPlaying && !isMuted && volume > 0) {
           targetHeight = Math.min(
-            42,
-            Math.max(6, height + (Math.random() - 0.5) * 16 * volume)
+            canvas.height - 2,
+            Math.max(4, height + (Math.random() - 0.5) * 14 * volume)
           );
         } else {
-          targetHeight = Math.max(4, height * 0.9);
+          targetHeight = Math.max(3, height * 0.92);
         }
         bars[i] = targetHeight;
 
         const grad = ctx.createLinearGradient(0, canvas.height - targetHeight, 0, canvas.height);
         grad.addColorStop(0, '#38BDF8'); // Cyan-400
-        grad.addColorStop(0.5, '#2563EB'); // Blue-600
-        grad.addColorStop(1, '#1D4ED8'); // Blue-700
+        grad.addColorStop(0.5, '#C084FC'); // Purple-400
+        grad.addColorStop(1, '#2563EB'); // Blue-600
 
         ctx.fillStyle = grad;
         ctx.beginPath();
@@ -320,8 +348,9 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
       utterance.rate = playbackSpeed;
       utterance.volume = Math.max(0.1, volume);
 
-      const { alexVoice, morganVoice } = resolveVoices();
-      const speakerVoice = turn.speaker === 'Alex' ? alexVoice : morganVoice;
+      const { lunaVoice, novaVoice } = resolveVoices();
+      const isLuna = turn.speaker.toLowerCase().includes('luna') || turn.speaker === 'Alex';
+      const speakerVoice = isLuna ? lunaVoice : novaVoice;
 
       if (speakerVoice) {
         utterance.voice = speakerVoice;
@@ -330,11 +359,13 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
         utterance.lang = navigator.language || 'en-US';
       }
 
-      if (turn.speaker === 'Alex') {
-        utterance.pitch = 1.12;
+      if (isLuna) {
+        // Luna: Inquisitive moon robot, slightly higher pitch with lively tone
+        utterance.pitch = lunaPitch;
       } else {
-        utterance.pitch = 0.90;
-        if (alexVoice && morganVoice && alexVoice.name === morganVoice.name) {
+        // Nova: Core data oracle robot, smooth authoritative analytics tone
+        utterance.pitch = novaPitch;
+        if (lunaVoice && novaVoice && lunaVoice.name === novaVoice.name) {
           utterance.rate = playbackSpeed * 0.94;
         }
       }
@@ -449,10 +480,32 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
     }
   };
 
+  const handleSelectSpeaker = (speaker: 'Luna' | 'Nova') => {
+    if (!brief) return;
+    const targetIdx = brief.dialogue.findIndex((turn, i) => {
+      const match = speaker === 'Luna'
+        ? (turn.speaker.toLowerCase().includes('luna') || turn.speaker === 'Alex')
+        : (turn.speaker.toLowerCase().includes('nova') || turn.speaker === 'Morgan');
+      return match && i >= currentTurnIdx && i !== currentTurnIdx;
+    });
+
+    const fallbackIdx = brief.dialogue.findIndex((turn) => {
+      return speaker === 'Luna'
+        ? (turn.speaker.toLowerCase().includes('luna') || turn.speaker === 'Alex')
+        : (turn.speaker.toLowerCase().includes('nova') || turn.speaker === 'Morgan');
+    });
+
+    const nextIdx = targetIdx !== -1 ? targetIdx : (fallbackIdx !== -1 ? fallbackIdx : currentTurnIdx);
+    stopAudio();
+    setCurrentTurnIdx(nextIdx);
+    setIsPlaying(true);
+    playTurn(nextIdx, true);
+  };
+
   const handleTestAudio = () => {
     try {
       setSpeechNotice(null);
-      setTestStatus('Testing hardware speaker chime & voice...');
+      setTestStatus('Testing hardware speaker chime & robot voices...');
       playAudioChime(Math.max(0.3, volume));
 
       if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
@@ -463,23 +516,23 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
       window.speechSynthesis.cancel();
       window.speechSynthesis.resume();
 
-      const { alexVoice } = resolveVoices();
-      const testUtterance = new SpeechSynthesisUtterance('DataNova audio test successful. Voice synthesis is operational.');
+      const { lunaVoice } = resolveVoices();
+      const testUtterance = new SpeechSynthesisUtterance('DataNova briefing test. Luna questioning, and Nova answering your dataset insights.');
       (window as any).__datovaSpeechUtterance = testUtterance;
 
       testUtterance.volume = Math.max(0.3, volume);
       testUtterance.rate = 1.0;
-      testUtterance.pitch = 1.05;
+      testUtterance.pitch = lunaPitch;
 
-      if (alexVoice) {
-        testUtterance.voice = alexVoice;
-        testUtterance.lang = alexVoice.lang;
+      if (lunaVoice) {
+        testUtterance.voice = lunaVoice;
+        testUtterance.lang = lunaVoice.lang;
       } else {
         testUtterance.lang = navigator.language || 'en-US';
       }
 
       testUtterance.onstart = () => {
-        setTestStatus(`✅ Playing test tone & voice: ${alexVoice ? alexVoice.name : 'System Default'} (${testUtterance.lang})`);
+        setTestStatus(`✅ Playing test chime & Luna voice: ${lunaVoice ? lunaVoice.name : 'System Default'} (${testUtterance.lang})`);
       };
 
       testUtterance.onend = () => {
@@ -500,43 +553,200 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
     }
   };
 
+  const handleTestSpecificVoice = (who: 'luna' | 'nova') => {
+    try {
+      if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+
+      const { lunaVoice, novaVoice } = resolveVoices();
+      const voice = who === 'luna' ? lunaVoice : novaVoice;
+      const pitch = who === 'luna' ? lunaPitch : novaPitch;
+      const text = who === 'luna'
+        ? "Hello! I'm Luna. My lunar scanners are calibrated to explore and question this dataset!"
+        : "Greetings! I'm Nova. Core telemetry online, ready with deep dataset insights!";
+
+      const testUtterance = new SpeechSynthesisUtterance(text);
+      testUtterance.volume = Math.max(0.3, volume);
+      testUtterance.rate = 1.0;
+      testUtterance.pitch = pitch;
+      if (voice) {
+        testUtterance.voice = voice;
+        testUtterance.lang = voice.lang;
+      }
+
+      window.speechSynthesis.speak(testUtterance);
+    } catch (e) {
+      console.warn('Voice preview error', e);
+    }
+  };
+
+  // Copy full briefing script to clipboard
+  const handleCopyScript = () => {
+    if (!brief) return;
+    const formatted = brief.dialogue.map(t => `${t.speaker} (${t.role}):\n"${t.text}"\n`).join('\n');
+    navigator.clipboard.writeText(formatted).then(() => {
+      setCopiedScript(true);
+      setTimeout(() => setCopiedScript(false), 2500);
+    });
+  };
+
+  // Download script as file
+  const handleDownloadScript = () => {
+    if (!brief) return;
+    const content = `DATANOVA EXECUTIVE BRIEFING\nDataset: ${datasetName}\nDomain: ${brief.domain}\nDuration: ~${brief.duration_est_seconds}s\n\n` +
+      `KEY TAKEAWAYS:\n` + brief.key_takeaways.map((k, i) => `${i+1}. ${k}`).join('\n') +
+      `\n\nDIALOGUE SCRIPT:\n` +
+      brief.dialogue.map(t => `[${t.speaker} - ${t.role}]\n"${t.text}"\n`).join('\n');
+
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `DataNova_Briefing_${datasetName.replace(/\s+/g, '_')}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Filtered dialogue turns for search and tags
+  const filteredDialogue = useMemo(() => {
+    if (!brief) return [];
+    return brief.dialogue.filter((turn) => {
+      const isLuna = turn.speaker.toLowerCase().includes('luna') || turn.speaker === 'Alex';
+      const isNova = turn.speaker.toLowerCase().includes('nova') || turn.speaker === 'Morgan';
+
+      if (speakerFilter === 'luna' && !isLuna) return false;
+      if (speakerFilter === 'nova' && !isNova) return false;
+      if (speakerFilter === 'caution' && turn.emphasis !== 'caution') return false;
+
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        return (
+          turn.text.toLowerCase().includes(query) ||
+          turn.speaker.toLowerCase().includes(query) ||
+          turn.role.toLowerCase().includes(query)
+        );
+      }
+      return true;
+    });
+  }, [brief, speakerFilter, searchQuery]);
+
+  const questionCount = useMemo(() => {
+    return brief?.dialogue.filter((t) => t.turn_type === 'question' || t.speaker.toLowerCase().includes('luna') || t.speaker === 'Alex').length || 0;
+  }, [brief]);
+
+  const answerCount = useMemo(() => {
+    return brief?.dialogue.filter((t) => t.turn_type === 'answer' || t.speaker.toLowerCase().includes('nova') || t.speaker === 'Morgan').length || 0;
+  }, [brief]);
+
+  const chapters = useMemo(() => {
+    if (!brief?.dialogue) return [];
+    const list: { chapter: string; turnIdx: number }[] = [];
+    const seen = new Set<string>();
+    brief.dialogue.forEach((turn, idx) => {
+      if (turn.chapter && !seen.has(turn.chapter)) {
+        seen.add(turn.chapter);
+        list.push({ chapter: turn.chapter, turnIdx: idx });
+      }
+    });
+    return list;
+  }, [brief]);
+
   if (!isOpen) return null;
 
   const currentTurn: AudioDialogueTurn | undefined = brief?.dialogue[currentTurnIdx];
-  const { alexVoice, morganVoice, pool } = resolveVoices();
+  const { lunaVoice, novaVoice, pool } = resolveVoices();
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-2xl p-2 sm:p-4 md:p-6 flex items-center justify-center animate-fadeIn min-h-screen">
-      <div className="glass-3d-card border border-blue-500/30 rounded-3xl w-full max-w-3xl overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(59,130,246,0.18)] flex flex-col max-h-[90vh] relative bg-[#070D1E]/95">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent pointer-events-none" />
+      <div className="glass-3d-card border border-blue-500/30 rounded-3xl w-full max-w-5xl overflow-hidden shadow-[0_25px_80px_rgba(0,0,0,0.95),0_0_60px_rgba(59,130,246,0.18)] flex flex-col max-h-[94vh] relative bg-[#070D1E]/95">
+        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-purple-500 via-cyan-400 to-amber-400 pointer-events-none" />
 
-        {/* Modal Header */}
-        <div className="px-5 sm:px-6 py-4 border-b border-blue-900/40 flex items-center justify-between bg-[#081020]/90 backdrop-blur-md shrink-0">
+        {/* 1. Modal Top Bar */}
+        <div className="px-4 sm:px-6 py-3.5 border-b border-blue-900/40 flex items-center justify-between bg-[#081020]/95 backdrop-blur-md shrink-0 gap-3">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600/30 to-cyan-500/20 border border-blue-400/40 flex items-center justify-center text-cyan-300 shadow-lg">
-              <Headphones className="w-5 h-5" />
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-purple-600/30 via-blue-600/30 to-cyan-500/20 border border-blue-400/40 flex items-center justify-center text-cyan-300 shadow-lg">
+              <Headphones className="w-5 h-5 text-cyan-300" />
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="font-extrabold text-sm sm:text-base text-white tracking-tight">
-                  Executive Briefing Audio Suite
+                <h3 className="font-extrabold text-sm sm:text-base text-white tracking-tight flex items-center gap-2">
+                  Executive Podcast Studio • Luna &amp; Nova
                 </h3>
-                <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 font-mono border border-blue-500/30 flex items-center gap-1 font-bold">
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-500/15 text-blue-300 font-mono border border-blue-500/30 flex items-center gap-1 font-bold">
                   <Radio className="w-2.5 h-2.5 text-cyan-400 animate-pulse" />
-                  AI PODCAST SYNTH
+                  ROBOT Q&amp;A DUO
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5 truncate max-w-sm sm:max-w-md">
-                Synthesized 2-host strategic debrief for <span className="text-cyan-300 font-medium">{datasetName}</span>
+              <p className="text-xs text-slate-400 truncate max-w-xs sm:max-w-md">
+                Dataset: <span className="text-cyan-300 font-medium">{datasetName}</span> • <span className="text-fuchsia-300 font-semibold">Luna</span> (Questions) &amp; <span className="text-cyan-300 font-semibold">Nova</span> (Answers)
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* View Mode Switcher Pills */}
+          <div className="hidden md:flex items-center bg-[#050B18] p-1 rounded-xl border border-blue-900/60 text-xs">
+            <button
+              onClick={() => setViewMode('split')}
+              className={`px-3 py-1 rounded-lg font-medium transition flex items-center gap-1.5 ${
+                viewMode === 'split'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              Split Studio
+            </button>
+            <button
+              onClick={() => setViewMode('studio')}
+              className={`px-3 py-1 rounded-lg font-medium transition flex items-center gap-1.5 ${
+                viewMode === 'studio'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Radio className="w-3.5 h-3.5" />
+              Cinematic Stage
+            </button>
+            <button
+              onClick={() => setViewMode('transcript')}
+              className={`px-3 py-1 rounded-lg font-medium transition flex items-center gap-1.5 ${
+                viewMode === 'transcript'
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Mic className="w-3.5 h-3.5" />
+              Full Q&amp;A Script
+            </button>
+          </div>
+
+          {/* Action Header Icons */}
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              onClick={handleCopyScript}
+              className="p-2 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white border border-blue-900/50 transition"
+              title="Copy entire briefing script"
+            >
+              {copiedScript ? (
+                <Check className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </button>
+
+            <button
+              onClick={handleDownloadScript}
+              className="p-2 rounded-xl bg-slate-900/60 hover:bg-slate-800 text-slate-300 hover:text-white border border-blue-900/50 transition hidden sm:inline-flex"
+              title="Download briefing script file"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+
             <button
               onClick={handleTestAudio}
               className="btn-3d-cyan text-xs px-2.5 py-1.5 rounded-xl flex items-center gap-1.5 font-medium shadow-sm"
-              title="Test hardware chime and speech synthesis"
+              title="Test hardware audio tone & voice"
             >
               <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
               <span className="hidden sm:inline">Test Audio</span>
@@ -547,7 +757,7 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
               className={`p-2 rounded-xl transition ${
                 showSettings
                   ? 'bg-blue-600/30 text-cyan-300 border border-cyan-400/40'
-                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80'
+                  : 'text-slate-400 hover:text-white hover:bg-slate-800/80 border border-transparent'
               }`}
               title="Voice & Engine Settings"
             >
@@ -560,66 +770,131 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                 onClose();
               }}
               className="p-1.5 rounded-xl hover:bg-slate-800/80 text-slate-400 hover:text-white transition"
-              title="Close modal"
+              title="Close briefing"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Diagnostic Status Banners */}
+        {/* 2. Executive Intelligence Metric Strip */}
+        {brief && (
+          <div className="px-4 sm:px-6 py-2 bg-[#060C1B] border-b border-blue-950 flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono shrink-0">
+            <div className="flex items-center gap-3 overflow-x-auto custom-scrollbar py-0.5">
+              <span className="flex items-center gap-1.5 text-slate-300">
+                <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Domain:</span>
+                <strong className="text-cyan-300 font-bold">{brief.domain}</strong>
+              </span>
+
+              <span className="text-slate-600">•</span>
+
+              <span className="text-slate-300 flex items-center gap-1">
+                <span>Duration:</span>
+                <strong className="text-white">~{Math.round(brief.duration_est_seconds)}s</strong>
+              </span>
+
+              <span className="text-slate-600">•</span>
+
+              <span className="text-slate-300 flex items-center gap-1">
+                <span>Script:</span>
+                <strong className="text-white">{brief.dialogue.length} Turns</strong>
+                <span className="text-fuchsia-300 text-[10px]">({questionCount} Q)</span>
+                <span className="text-cyan-300 text-[10px]">({answerCount} A)</span>
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowKeyTakeaways(!showKeyTakeaways)}
+              className="flex items-center gap-1.5 text-xs text-amber-300 hover:text-amber-200 transition font-sans font-semibold ml-auto"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              <span>Key Takeaways ({brief.key_takeaways.length})</span>
+              {showKeyTakeaways ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        )}
+
+        {/* Expandable Key Takeaways Drawer */}
+        {showKeyTakeaways && brief && (
+          <div className="px-4 sm:px-6 py-3 bg-[#0A1224] border-b border-amber-500/30 text-xs animate-fadeIn shrink-0">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+              {brief.key_takeaways.map((takeaway, idx) => (
+                <div
+                  key={idx}
+                  className="p-2.5 rounded-xl bg-gradient-to-br from-[#0F1B36] to-[#0A1224] border border-amber-500/25 flex items-start gap-2 text-slate-200 shadow-sm"
+                >
+                  <span className="w-5 h-5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-bold flex items-center justify-center shrink-0 border border-amber-500/30">
+                    {idx + 1}
+                  </span>
+                  <p className="leading-relaxed text-[12px]">{takeaway}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Status / Notice Banners */}
         {testStatus && (
-          <div className="px-5 sm:px-6 py-2 bg-blue-950/90 border-b border-blue-800/60 text-xs text-cyan-200 flex items-center justify-between animate-fadeIn shrink-0">
+          <div className="px-4 sm:px-6 py-2 bg-blue-950/90 border-b border-blue-800/60 text-xs text-cyan-200 flex items-center justify-between animate-fadeIn shrink-0">
             <span className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-cyan-400 shrink-0" />
               {testStatus}
             </span>
-            <button
-              onClick={() => setTestStatus(null)}
-              className="text-slate-400 hover:text-white text-[10px] ml-2"
-            >
+            <button onClick={() => setTestStatus(null)} className="text-slate-400 hover:text-white text-[10px]">
               Dismiss
             </button>
           </div>
         )}
 
         {speechNotice && (
-          <div className="px-5 sm:px-6 py-2.5 bg-rose-950/90 border-b border-rose-800/60 text-xs text-rose-200 flex items-center justify-between animate-fadeIn shrink-0">
+          <div className="px-4 sm:px-6 py-2 bg-rose-950/90 border-b border-rose-800/60 text-xs text-rose-200 flex items-center justify-between animate-fadeIn shrink-0">
             <span className="flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
               {speechNotice}
             </span>
-            <button
-              onClick={() => setSpeechNotice(null)}
-              className="text-rose-300 hover:text-white text-[10px] underline ml-2"
-            >
+            <button onClick={() => setSpeechNotice(null)} className="text-rose-300 hover:text-white text-[10px] underline">
               Dismiss
             </button>
           </div>
         )}
 
-        {/* Voice & Audio Settings Drawer */}
+        {/* Voice & Speech Engine Settings Drawer */}
         {showSettings && (
-          <div className="px-5 sm:px-6 py-3.5 bg-[#081020] border-b border-blue-900/50 space-y-3 animate-fadeIn text-xs shrink-0">
+          <div className="px-4 sm:px-6 py-3.5 bg-[#081020] border-b border-blue-900/50 space-y-3.5 animate-fadeIn text-xs shrink-0">
             <div className="flex items-center justify-between">
               <span className="font-bold text-white flex items-center gap-1.5">
                 <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                Audio & Voice Engine Setup
+                Robot Voice &amp; Speech Synthesizer Setup
               </span>
               <span className="text-[11px] text-slate-400 font-mono">
                 {pool.length > 0 ? `${pool.length} System Voices Detected` : 'Scanning System Voices...'}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-cyan-300 mb-1">
-                  Alex (Lead Strategist Voice)
-                </label>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Luna Voice Config */}
+              <div className="p-3 rounded-2xl bg-[#0D1830] border border-purple-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-fuchsia-300 flex items-center gap-1.5">
+                    <Moon className="w-3.5 h-3.5 text-fuchsia-400" />
+                    Luna (Moon Bot • Questions Dataset)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleTestSpecificVoice('luna')}
+                    className="text-[10px] text-fuchsia-300 hover:text-white px-2 py-0.5 rounded-md bg-purple-900/40 hover:bg-purple-800/60 border border-purple-500/30 transition flex items-center gap-1"
+                  >
+                    <Volume2 className="w-3 h-3" />
+                    Preview
+                  </button>
+                </div>
+
                 <select
-                  value={selectedAlexVoice || alexVoice?.name || ''}
-                  onChange={(e) => setSelectedAlexVoice(e.target.value)}
-                  className="w-full bg-[#0D1B36] border border-blue-800/60 rounded-xl px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                  value={selectedLunaVoice || lunaVoice?.name || ''}
+                  onChange={(e) => setSelectedLunaVoice(e.target.value)}
+                  className="w-full bg-[#081020] border border-purple-900/60 rounded-xl px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-fuchsia-400"
                 >
                   {pool.map((v, i) => (
                     <option key={i} value={v.name}>
@@ -628,16 +903,43 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                   ))}
                   {pool.length === 0 && <option value="">Default System Voice</option>}
                 </select>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span>Pitch Tone:</span>
+                  <input
+                    type="range"
+                    min="0.9"
+                    max="1.4"
+                    step="0.05"
+                    value={lunaPitch}
+                    onChange={(e) => setLunaPitch(parseFloat(e.target.value))}
+                    className="w-28 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-fuchsia-400"
+                  />
+                  <span className="font-mono text-fuchsia-300 w-8 text-right">{lunaPitch.toFixed(2)}x</span>
+                </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold text-indigo-300 mb-1">
-                  Morgan (Risk Analyst Voice)
-                </label>
+              {/* Nova Voice Config */}
+              <div className="p-3 rounded-2xl bg-[#0D1830] border border-cyan-500/30 space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-[11px] font-semibold text-cyan-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                    Nova (Core Data Oracle • Answers Insights)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => handleTestSpecificVoice('nova')}
+                    className="text-[10px] text-cyan-300 hover:text-white px-2 py-0.5 rounded-md bg-cyan-900/40 hover:bg-cyan-800/60 border border-cyan-500/30 transition flex items-center gap-1"
+                  >
+                    <Volume2 className="w-3 h-3" />
+                    Preview
+                  </button>
+                </div>
+
                 <select
-                  value={selectedMorganVoice || morganVoice?.name || ''}
-                  onChange={(e) => setSelectedMorganVoice(e.target.value)}
-                  className="w-full bg-[#0D1B36] border border-blue-800/60 rounded-xl px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
+                  value={selectedNovaVoice || novaVoice?.name || ''}
+                  onChange={(e) => setSelectedNovaVoice(e.target.value)}
+                  className="w-full bg-[#081020] border border-cyan-900/60 rounded-xl px-2.5 py-1.5 text-slate-200 text-xs focus:outline-none focus:border-cyan-400"
                 >
                   {pool.map((v, i) => (
                     <option key={i} value={v.name}>
@@ -646,70 +948,150 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                   ))}
                   {pool.length === 0 && <option value="">Default System Voice</option>}
                 </select>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                  <span>Pitch Tone:</span>
+                  <input
+                    type="range"
+                    min="0.75"
+                    max="1.15"
+                    step="0.05"
+                    value={novaPitch}
+                    onChange={(e) => setNovaPitch(parseFloat(e.target.value))}
+                    className="w-28 h-1.5 bg-slate-900 rounded-lg appearance-none cursor-pointer accent-cyan-400"
+                  />
+                  <span className="font-mono text-cyan-300 w-8 text-right">{novaPitch.toFixed(2)}x</span>
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        {/* Modal Body */}
+        {/* 3. Main Modal Content Body */}
         {loading ? (
           <div className="p-20 flex flex-col items-center justify-center gap-3">
-            <div className="w-9 h-9 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
-            <p className="text-xs text-slate-300 font-medium">Synthesizing executive briefing dialogue...</p>
+            <div className="w-10 h-10 rounded-full border-3 border-cyan-500 border-t-transparent animate-spin" />
+            <p className="text-xs text-slate-300 font-medium tracking-wide">
+              Calibrating Luna &amp; Nova intelligence telemetry...
+            </p>
           </div>
         ) : brief ? (
-          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1 custom-scrollbar">
-            {/* Visualizer & Active Speaker Stage */}
-            <div className="p-4 rounded-2xl bg-[#081020]/90 border border-blue-900/50 flex flex-col items-center justify-center relative overflow-hidden shadow-inner">
-              <canvas
-                ref={canvasRef}
-                width={400}
-                height={50}
-                className="w-full max-w-md h-12"
-              />
+          <div className="p-3 sm:p-5 space-y-3.5 overflow-y-auto flex-1 custom-scrollbar">
+            {/* 3A. Interactive Multi-Segment Timeline Scrubber */}
+            <div className="p-3 rounded-2xl bg-[#091124]/90 border border-blue-900/50 space-y-2">
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                  <span>Timeline Dialogue Scrubber</span>
+                </span>
+                <span className="text-slate-300 font-bold">
+                  Turn {currentTurnIdx + 1} of {brief.dialogue.length}
+                </span>
+              </div>
 
-              {/* Active Speaker Card */}
-              {currentTurn && (
-                <div className="mt-2.5 flex items-center gap-3 px-4 py-1.5 rounded-full bg-[#0D1B36] border border-cyan-500/40 shadow-lg animate-fadeIn">
-                  <div
-                    className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black text-white shadow-md ${
-                      currentTurn.speaker === 'Alex'
-                        ? 'bg-gradient-to-tr from-blue-600 to-cyan-500 ring-2 ring-cyan-400/40'
-                        : 'bg-gradient-to-tr from-indigo-600 to-purple-500 ring-2 ring-indigo-400/40'
-                    }`}
-                  >
-                    {currentTurn.speaker[0]}
-                  </div>
-                  <div className="text-left">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-bold text-white leading-tight">
-                        {currentTurn.speaker}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        ({currentTurn.role})
-                      </span>
-                    </div>
-                  </div>
-                  {isPlaying && (
-                    <div className="flex items-center gap-0.5 ml-1">
-                      <span className="w-1 h-3 bg-cyan-400 rounded-full animate-bounce" />
-                      <span className="w-1 h-4 bg-cyan-400 rounded-full animate-bounce [animation-delay:0.15s]" />
-                      <span className="w-1 h-2 bg-cyan-400 rounded-full animate-bounce [animation-delay:0.3s]" />
-                    </div>
-                  )}
+              {/* Segmented Turn Track */}
+              <div
+                className="grid gap-1 sm:gap-1.5"
+                style={{ gridTemplateColumns: `repeat(${brief.dialogue.length}, minmax(0, 1fr))` }}
+              >
+                {brief.dialogue.map((turn, i) => {
+                  const isCurrent = currentTurnIdx === i;
+                  const isLuna = turn.speaker.toLowerCase().includes('luna') || turn.speaker === 'Alex';
+
+                  return (
+                    <button
+                      key={turn.id || i}
+                      type="button"
+                      onClick={() => {
+                        stopAudio();
+                        setSpeechNotice(null);
+                        setCurrentTurnIdx(i);
+                        setIsPlaying(true);
+                        playAudioChime(volume);
+                        playTurn(i, true);
+                      }}
+                      className={`relative h-2.5 sm:h-3 rounded-full transition-all group overflow-hidden ${
+                        isCurrent
+                          ? isLuna
+                            ? 'ring-2 ring-fuchsia-400 shadow-[0_0_12px_rgba(192,132,252,0.8)]'
+                            : 'ring-2 ring-cyan-400 shadow-[0_0_12px_rgba(6,182,212,0.8)]'
+                          : 'opacity-65 hover:opacity-100'
+                      } ${
+                        isLuna
+                          ? 'bg-gradient-to-r from-purple-600 to-fuchsia-400'
+                          : 'bg-gradient-to-r from-blue-600 to-cyan-400'
+                      }`}
+                      title={`Turn ${i + 1}: ${turn.speaker} - ${turn.chapter || (isLuna ? 'Question' : 'Answer')}`}
+                    >
+                      {isCurrent && (
+                        <span className="absolute inset-0 bg-white/40 animate-pulse" />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Chapter Quick-Jump Bar */}
+              {chapters.length > 0 && (
+                <div className="flex items-center gap-1.5 overflow-x-auto custom-scrollbar pt-1.5 pb-0.5">
+                  <span className="text-[10px] text-slate-500 font-mono shrink-0 uppercase tracking-wider">Chapters:</span>
+                  {chapters.map((ch, idx) => {
+                    const isChapterActive = currentTurnIdx >= ch.turnIdx &&
+                      (idx === chapters.length - 1 || currentTurnIdx < chapters[idx + 1].turnIdx);
+
+                    return (
+                      <button
+                        key={ch.chapter}
+                        type="button"
+                        onClick={() => {
+                          stopAudio();
+                          setSpeechNotice(null);
+                          setCurrentTurnIdx(ch.turnIdx);
+                          setIsPlaying(true);
+                          playAudioChime(volume);
+                          playTurn(ch.turnIdx, true);
+                        }}
+                        className={`text-[10px] px-2.5 py-0.5 rounded-lg whitespace-nowrap transition flex items-center gap-1 shrink-0 ${
+                          isChapterActive
+                            ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-400/50 shadow-[0_0_8px_rgba(6,182,212,0.3)] font-semibold'
+                            : 'bg-slate-900/60 hover:bg-slate-800 text-slate-400 hover:text-slate-200 border border-slate-800'
+                        }`}
+                        title={`Jump to ${ch.chapter}`}
+                      >
+                        <Layers className="w-2.5 h-2.5 text-cyan-400" />
+                        <span>{ch.chapter}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>
 
-            {/* Audio Controls Console */}
-            <div className="glass-3d-card flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-3 rounded-2xl border border-blue-900/60 shadow-lg bg-[#0B152B]/90">
+            {/* 3B. 3D Robot Broadcast Studio Stage (Visible in Split & Studio views) */}
+            {viewMode !== 'transcript' && (
+              <RobotPodcastStudio
+                currentTurn={currentTurn}
+                currentTurnIdx={currentTurnIdx}
+                totalTurns={brief.dialogue.length}
+                isPlaying={isPlaying}
+                volume={volume}
+                isMuted={isMuted}
+                onSelectSpeaker={handleSelectSpeaker}
+                onNextTurn={handleSkipNext}
+                onPrevTurn={handleSkipPrev}
+                datasetName={datasetName}
+              />
+            )}
+
+            {/* 3C. Audio Controls Console Dock */}
+            <div className="glass-3d-card flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-3 rounded-2xl border border-blue-900/60 shadow-lg bg-[#0B152B]/95">
               <div className="flex items-center gap-2 sm:gap-3">
                 <button
                   type="button"
                   onClick={handleSkipPrev}
                   disabled={currentTurnIdx === 0}
-                  className="p-2 rounded-xl bg-[#081020] border border-blue-900/60 text-slate-300 hover:text-white disabled:opacity-40 transition"
-                  title="Previous turn"
+                  className="p-2 rounded-xl bg-[#081020] border border-blue-900/60 text-slate-300 hover:text-white disabled:opacity-30 transition hover:border-blue-700"
+                  title="Previous dialogue turn"
                 >
                   <SkipBack className="w-4 h-4" />
                 </button>
@@ -717,7 +1099,7 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                 <button
                   type="button"
                   onClick={handlePlayPause}
-                  className="btn-3d-primary w-11 h-11 rounded-2xl text-white flex items-center justify-center transition shadow-[0_0_20px_rgba(37,99,235,0.4)]"
+                  className="btn-3d-primary w-11 h-11 rounded-2xl text-white flex items-center justify-center transition shadow-[0_0_25px_rgba(37,99,235,0.45)] hover:scale-105 active:scale-95"
                   title={isPlaying ? 'Pause Briefing' : 'Play Briefing'}
                 >
                   {isPlaying ? (
@@ -731,8 +1113,8 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                   type="button"
                   onClick={handleSkipNext}
                   disabled={currentTurnIdx >= brief.dialogue.length - 1}
-                  className="p-2 rounded-xl bg-[#081020] border border-blue-900/60 text-slate-300 hover:text-white disabled:opacity-40 transition"
-                  title="Next turn"
+                  className="p-2 rounded-xl bg-[#081020] border border-blue-900/60 text-slate-300 hover:text-white disabled:opacity-30 transition hover:border-blue-700"
+                  title="Next dialogue turn"
                 >
                   <SkipForward className="w-4 h-4" />
                 </button>
@@ -741,7 +1123,7 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                   type="button"
                   onClick={handleRestart}
                   title="Restart from beginning"
-                  className="p-2 rounded-xl bg-[#081020] border border-blue-900/60 text-slate-300 hover:text-white transition"
+                  className="p-2 rounded-xl bg-[#081020] border border-blue-900/60 text-slate-300 hover:text-white transition hover:border-blue-700"
                 >
                   <RotateCcw className="w-4 h-4" />
                 </button>
@@ -783,6 +1165,17 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                 </div>
               </div>
 
+              {/* Center Spectrum Wave Bar */}
+              <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-xl bg-[#081020] border border-blue-900/60">
+                <canvas
+                  ref={canvasRef}
+                  width={180}
+                  height={22}
+                  className="w-36 h-5"
+                />
+              </div>
+
+              {/* Right Controls */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"
@@ -792,95 +1185,203 @@ export const AudioBriefModal: React.FC<AudioBriefModalProps> = ({
                 >
                   {playbackSpeed}x
                 </button>
-                <span className="text-[11px] font-mono text-slate-400 bg-[#081020] px-2.5 py-1 rounded-xl border border-blue-900/50">
-                  Turn {currentTurnIdx + 1} of {brief.dialogue.length}
-                </span>
+
+                <div className="text-[11px] font-mono text-slate-300 bg-[#081020] px-2.5 py-1 rounded-xl border border-blue-900/50 flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${isPlaying ? 'bg-cyan-400 animate-ping' : 'bg-slate-500'}`} />
+                  <span>{isPlaying ? 'PLAYING' : 'IDLE'}</span>
+                </div>
               </div>
             </div>
 
-            {/* Interactive Synced Transcript */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                  <Mic className="w-3.5 h-3.5 text-cyan-400" />
-                  <span>Executive Dialogue Transcript</span>
-                </h4>
-                <span className="text-[10px] text-slate-400">Click any dialogue turn to jump</span>
-              </div>
+            {/* 3D. Synced Q&A Dialogue Transcript (Visible in Split & Transcript views) */}
+            {viewMode !== 'studio' && (
+              <div className="space-y-2.5 pt-1">
+                {/* Transcript Header with Search & Filter Tabs */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 px-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
+                      <Mic className="w-3.5 h-3.5 text-cyan-400" />
+                      <span>Synchronized Dialogue Feed</span>
+                    </h4>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      ({filteredDialogue.length} turns)
+                    </span>
+                  </div>
 
-              <div
-                ref={transcriptContainerRef}
-                className="space-y-2.5 max-h-56 overflow-y-auto pr-1 custom-scrollbar"
-              >
-                {brief.dialogue.map((turn, idx) => {
-                  const isCurrent = currentTurnIdx === idx;
-                  const isAlex = turn.speaker === 'Alex';
-
-                  return (
-                    <div
-                      key={turn.id || idx}
-                      data-turn-idx={idx}
-                      onClick={() => {
-                        stopAudio();
-                        setSpeechNotice(null);
-                        setCurrentTurnIdx(idx);
-                        setIsPlaying(true);
-                        playAudioChime(volume);
-                        playTurn(idx, true);
-                      }}
-                      className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex gap-3 items-start ${
-                        isCurrent
-                          ? 'bg-blue-950/70 border-cyan-400/80 shadow-[0_0_20px_rgba(6,182,212,0.2)] ring-1 ring-cyan-400/50'
-                          : 'bg-[#081020]/75 border-blue-950/80 hover:bg-[#0D1B36]/60 hover:border-blue-800 text-slate-400'
+                  {/* Filter Pills */}
+                  <div className="flex items-center gap-1 flex-wrap text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => setSpeakerFilter('all')}
+                      className={`px-2.5 py-0.5 rounded-lg font-medium transition ${
+                        speakerFilter === 'all'
+                          ? 'bg-blue-600/30 text-cyan-300 border border-cyan-400/40'
+                          : 'text-slate-400 hover:text-white bg-slate-900/50 border border-transparent'
                       }`}
                     >
-                      <div
-                        className={`w-7 h-7 rounded-xl shrink-0 flex items-center justify-center text-xs font-black text-white shadow-sm ${
-                          isAlex
-                            ? 'bg-gradient-to-tr from-blue-600 to-cyan-500'
-                            : 'bg-gradient-to-tr from-indigo-600 to-purple-500'
-                        }`}
-                      >
-                        {turn.speaker[0]}
-                      </div>
+                      All
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpeakerFilter('luna')}
+                      className={`px-2.5 py-0.5 rounded-lg font-medium transition flex items-center gap-1 ${
+                        speakerFilter === 'luna'
+                          ? 'bg-purple-600/30 text-fuchsia-300 border border-fuchsia-400/40'
+                          : 'text-slate-400 hover:text-white bg-slate-900/50 border border-transparent'
+                      }`}
+                    >
+                      <Moon className="w-3 h-3 text-fuchsia-400" />
+                      Luna (Q)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpeakerFilter('nova')}
+                      className={`px-2.5 py-0.5 rounded-lg font-medium transition flex items-center gap-1 ${
+                        speakerFilter === 'nova'
+                          ? 'bg-blue-600/30 text-cyan-300 border border-cyan-400/40'
+                          : 'text-slate-400 hover:text-white bg-slate-900/50 border border-transparent'
+                      }`}
+                    >
+                      <Sparkles className="w-3 h-3 text-cyan-400" />
+                      Nova (A)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSpeakerFilter('caution')}
+                      className={`px-2 py-0.5 rounded-lg font-medium transition flex items-center gap-1 ${
+                        speakerFilter === 'caution'
+                          ? 'bg-rose-600/30 text-rose-300 border border-rose-400/40'
+                          : 'text-slate-400 hover:text-white bg-slate-900/50 border border-transparent'
+                      }`}
+                    >
+                      <AlertTriangle className="w-3 h-3 text-rose-400" />
+                      Risks
+                    </button>
+                  </div>
 
-                      <div className="flex-1 text-xs">
-                        <div className="flex items-center justify-between mb-1">
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`font-bold ${
-                                isAlex ? 'text-cyan-300' : 'text-indigo-300'
-                              }`}
-                            >
-                              {turn.speaker}
-                            </span>
-                            <span className="text-[10px] text-slate-500 font-mono">
-                              {turn.role}
-                            </span>
-                          </div>
+                  {/* Search Input */}
+                  <div className="relative w-full sm:w-52">
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                    <input
+                      type="text"
+                      placeholder="Search dialogue keywords..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full bg-[#081020] border border-blue-900/60 rounded-xl pl-8 pr-3 py-1 text-xs text-slate-200 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                    />
+                  </div>
+                </div>
 
-                          {turn.emphasis === 'caution' && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1 font-semibold">
-                              <AlertTriangle className="w-2.5 h-2.5" /> Risk Alert
-                            </span>
-                          )}
-                        </div>
+                {/* Dialogue Turn Cards List */}
+                <div
+                  ref={transcriptContainerRef}
+                  className={`space-y-2.5 overflow-y-auto pr-1 custom-scrollbar ${
+                    viewMode === 'transcript' ? 'max-h-[550px]' : 'max-h-56 sm:max-h-64'
+                  }`}
+                >
+                  {filteredDialogue.length === 0 ? (
+                    <div className="p-8 text-center text-slate-500 text-xs font-mono">
+                      No dialogue turns match "{searchQuery}"
+                    </div>
+                  ) : (
+                    filteredDialogue.map((turn) => {
+                      const origIdx = brief.dialogue.findIndex(t => t.id === turn.id);
+                      const activeIdx = origIdx !== -1 ? origIdx : 0;
+                      const isCurrent = currentTurnIdx === activeIdx;
+                      const isLuna = turn.speaker.toLowerCase().includes('luna') || turn.speaker === 'Alex';
+                      const isNova = turn.speaker.toLowerCase().includes('nova') || turn.speaker === 'Morgan';
 
-                        <p
-                          className={`leading-relaxed text-xs sm:text-[13px] ${
+                      return (
+                        <div
+                          key={turn.id}
+                          data-turn-idx={activeIdx}
+                          onClick={() => {
+                            stopAudio();
+                            setSpeechNotice(null);
+                            setCurrentTurnIdx(activeIdx);
+                            setIsPlaying(true);
+                            playAudioChime(volume);
+                            playTurn(activeIdx, true);
+                          }}
+                          className={`p-3 sm:p-3.5 rounded-2xl border transition-all cursor-pointer flex gap-3 items-start group ${
                             isCurrent
-                              ? 'text-white font-medium'
-                              : 'text-slate-300'
+                              ? isLuna
+                                ? 'bg-purple-950/70 border-fuchsia-400/80 shadow-[0_0_22px_rgba(192,132,252,0.25)] ring-1 ring-fuchsia-400/50'
+                                : 'bg-blue-950/70 border-cyan-400/80 shadow-[0_0_22px_rgba(6,182,212,0.25)] ring-1 ring-cyan-400/50'
+                              : 'bg-[#081020]/75 border-blue-950/80 hover:bg-[#0D1B36]/60 hover:border-blue-800 text-slate-400'
                           }`}
                         >
-                          {turn.text}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
+                          {/* Speaker Avatar Icon */}
+                          <div
+                            className={`w-8 h-8 rounded-xl shrink-0 flex items-center justify-center text-sm font-black shadow-sm ${
+                              isLuna
+                                ? 'bg-gradient-to-tr from-purple-600 to-fuchsia-400 text-white ring-1 ring-fuchsia-400/40'
+                                : 'bg-gradient-to-tr from-blue-600 to-cyan-500 text-white ring-1 ring-cyan-400/40'
+                            }`}
+                          >
+                            {isLuna ? '🌙' : '✨'}
+                          </div>
+
+                          <div className="flex-1 text-xs">
+                            <div className="flex items-center justify-between mb-1 flex-wrap gap-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                  className={`font-bold ${
+                                    isLuna ? 'text-fuchsia-300' : 'text-cyan-300'
+                                  }`}
+                                >
+                                  {turn.speaker}
+                                </span>
+                                <span className="text-[10px] text-slate-400 font-mono px-2 py-0.5 rounded-md bg-slate-900/80 border border-slate-800">
+                                  {turn.role}
+                                </span>
+                              </div>
+
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  {turn.chapter && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-900/30 text-blue-300 border border-blue-700/40 font-mono flex items-center gap-1">
+                                      <Layers className="w-2.5 h-2.5 text-blue-400" /> {turn.chapter}
+                                    </span>
+                                  )}
+                                  {(turn.turn_type === 'question' || isLuna) && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-purple-500/20 text-purple-300 border border-purple-500/30 font-semibold flex items-center gap-1">
+                                      <Moon className="w-2.5 h-2.5" /> Question
+                                    </span>
+                                  )}
+                                  {(turn.turn_type === 'answer' || isNova) && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold flex items-center gap-1">
+                                      <Sparkles className="w-2.5 h-2.5" /> Answer
+                                    </span>
+                                  )}
+                                  {turn.emphasis === 'caution' && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-rose-500/20 text-rose-300 border border-rose-500/30 flex items-center gap-1 font-semibold">
+                                      <AlertTriangle className="w-2.5 h-2.5" /> Risk Alert
+                                    </span>
+                                  )}
+
+                                  <span className="text-[10px] font-mono text-slate-500 opacity-0 group-hover:opacity-100 transition hidden sm:inline">
+                                    Click to Listen
+                                  </span>
+                                </div>
+                            </div>
+
+                            <p
+                              className={`leading-relaxed text-xs sm:text-[13px] ${
+                                isCurrent
+                                  ? 'text-white font-medium'
+                                  : 'text-slate-300'
+                              }`}
+                            >
+                              "{turn.text}"
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ) : null}
       </div>

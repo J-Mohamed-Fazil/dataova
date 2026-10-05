@@ -17,7 +17,8 @@ import {
   GitPullRequest,
   RefreshCw,
   Calculator,
-  Brain
+  Brain,
+  LayoutDashboard,
 } from 'lucide-react';
 import { useWorkspace } from '../../store/workspaceContext';
 import { api } from '../../services/api';
@@ -85,6 +86,27 @@ export const OverviewView: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6 lg:p-8 pb-24 md:pb-28 space-y-6 sm:space-y-8 bg-transparent perspective-1000 max-w-7xl mx-auto w-full">
+      {/* ── Page Header ── */}
+      <div className="view-header">
+        <div className="flex items-start gap-3">
+          <div className="dept-section-icon dept-section-icon-blue mt-0.5 shrink-0">
+            <LayoutDashboard className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="view-header-title">Analytical Overview</h2>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                <span className="status-dot-live" style={{ background: '#60a5fa', boxShadow: '0 0 6px #60a5fa' }} />
+                {currentDataset.detected_domain}
+              </span>
+            </div>
+            <p className="view-header-subtitle">
+              {currentDataset.row_count.toLocaleString()} observations &bull; {currentDataset.column_count} features &bull; Health score {healthScore}%
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Top Banner: Domain Classification & 3D Health Gauge */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         {/* Domain Classification Card with 3D Depth */}

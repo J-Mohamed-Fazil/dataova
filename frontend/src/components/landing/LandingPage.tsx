@@ -281,7 +281,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenUpload, onOpenTu
 
         {/* Hero Section */}
         <div className="text-center space-y-4 sm:space-y-6 pt-1 sm:pt-4">
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1 sm:py-1.5 rounded-full bg-slate-900/80 border border-blue-500/30 text-[11px] sm:text-xs font-semibold text-cyan-300 shadow-[0_0_20px_rgba(59,130,246,0.25)] backdrop-blur-xl hover:scale-105 transition-transform max-w-full">
+          <div className="inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 rounded-full bg-slate-900/90 border border-blue-500/35 text-[11px] sm:text-xs font-bold text-cyan-300 shadow-[0_0_24px_rgba(59,130,246,0.3),0_0_48px_rgba(6,182,212,0.1)] backdrop-blur-xl hover:scale-105 hover:shadow-[0_0_32px_rgba(59,130,246,0.45)] transition-all max-w-full">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400 animate-pulse shrink-0" />
             <span className="tracking-wide truncate">Autonomous AI Intelligence Engine</span>
             <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping shrink-0" />
@@ -291,7 +291,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenUpload, onOpenTu
           <h1 className="text-2xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white leading-[1.15] drop-shadow-2xl px-2">
             Your data has a story.{' '}
             <br className="hidden sm:inline" />
-            <span className="gradient-text">Let AI discover it.</span>
+            <span className="text-shimmer">Let AI discover it.</span>
           </h1>
 
           <p className="max-w-2xl mx-auto text-slate-300 text-xs sm:text-base lg:text-lg leading-relaxed font-normal px-2">
@@ -323,24 +323,26 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenUpload, onOpenTu
 
               {isDroppingUpload ? (
                 <div className="py-6 flex flex-col items-center justify-center space-y-3 translate-z-20">
-                  <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
+                  <div className="w-14 h-14 rounded-2xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 text-cyan-400 animate-spin" />
+                  </div>
                   <div className="text-center">
-                    <p className="text-sm font-bold text-white">Ingesting & Profiling Dataset...</p>
-                    <p className="text-xs text-slate-400 mt-1">Executing deterministic schema discovery & 3D health audit</p>
+                    <p className="text-sm font-bold text-white">Ingesting &amp; Profiling Dataset...</p>
+                    <p className="text-xs text-slate-400 mt-1">Executing deterministic schema discovery &amp; 3D health audit</p>
                   </div>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center space-y-3.5">
-                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600/30 via-indigo-500/25 to-cyan-400/30 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-[0_8px_25px_rgba(6,182,212,0.3)] translate-z-30 group-hover:scale-110 transition duration-300">
+                  <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600/30 via-indigo-500/25 to-cyan-400/30 border border-cyan-400/40 flex items-center justify-center text-cyan-300 shadow-[0_8px_30px_rgba(6,182,212,0.35)] translate-z-30 group-hover:scale-110 transition duration-300">
                     <FileUp className="w-8 h-8" />
                   </div>
                   
                   <div className="text-center space-y-1 translate-z-20">
                     <p className="text-base font-bold text-white group-hover:text-cyan-300 transition tracking-tight">
-                      Drag & Drop CSV, Excel, or Zip Here
+                      Drag &amp; Drop CSV, Excel, or Zip Here
                     </p>
                     <p className="text-xs text-slate-400">
-                      or click to browse from your computer • Instant 3D Schema Synthesis
+                      or click to browse from your computer &bull; Instant 3D Schema Synthesis
                     </p>
                   </div>
 
@@ -348,7 +350,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onOpenUpload, onOpenTu
                     {['.CSV', '.XLSX', '.TSV', '.ZIP'].map((ext) => (
                       <span
                         key={ext}
-                        className="text-[10px] uppercase font-mono px-2.5 py-0.5 rounded-lg bg-slate-900/90 text-slate-300 border border-slate-700/80 shadow-sm"
+                        className="text-[10px] uppercase font-mono px-2.5 py-0.5 rounded-lg bg-slate-900/90 text-cyan-300/70 border border-cyan-500/20 shadow-sm"
                       >
                         {ext}
                       </span>

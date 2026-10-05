@@ -21,7 +21,8 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Loader2
+  Loader2,
+  Database,
 } from 'lucide-react';
 import { useWorkspace } from '../../store/workspaceContext';
 import { api } from '../../services/api';
@@ -144,6 +145,27 @@ export const DataView: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6 lg:p-8 pb-24 md:pb-28 space-y-5 sm:space-y-6 bg-transparent max-w-7xl mx-auto w-full">
+      {/* ── Page Header ── */}
+      <div className="view-header">
+        <div className="flex items-start gap-3">
+          <div className="dept-section-icon dept-section-icon-blue mt-0.5 shrink-0">
+            <Database className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="view-header-title">Data Explorer</h2>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-blue-500/15 text-blue-300 border border-blue-500/30">
+                <span className="status-dot-live" style={{ background: '#60a5fa', boxShadow: '0 0 6px #60a5fa' }} />
+                {activeTable?.table_name || currentDataset.name}
+              </span>
+            </div>
+            <p className="view-header-subtitle">
+              {activeTable?.row_count.toLocaleString() || currentDataset.row_count.toLocaleString()} rows &bull; {columns.length} features &bull; Raw preview, schema profiling &amp; health audit
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Table Selector & Sub Tabs Bar */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
         {/* Table Selector Pills if multi-table */}

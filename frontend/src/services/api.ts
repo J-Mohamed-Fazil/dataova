@@ -548,7 +548,7 @@ export const api = {
 
   generateExecutiveReport: async (
     datasetId: string,
-    payload?: { prompt?: string; user_name?: string; user_role?: string }
+    payload?: { prompt?: string; user_name?: string; user_role?: string; api_key?: string }
   ): Promise<ExecutiveDashboardReportData> => {
     const res = await authFetch(`${API_BASE}/reports/${datasetId}/executive-template/generate`, {
       method: 'POST',
@@ -556,6 +556,32 @@ export const api = {
       body: JSON.stringify(payload || {})
     });
     if (!res.ok) throw new Error('Failed to generate customized executive report');
+    return res.json();
+  },
+
+  generateBusinessCharts: async (
+    datasetId: string,
+    payload?: { prompt?: string; chart_category?: string; count?: number }
+  ): Promise<{ dataset_id: string; domain: string; count: number; charts: any[] }> => {
+    const res = await authFetch(`${API_BASE}/reports/${datasetId}/ai-charts/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+    if (!res.ok) throw new Error('Failed to generate business charts');
+    return res.json();
+  },
+
+  injectBusinessChart: async (
+    datasetId: string,
+    payload: { section_id?: string; chart: any }
+  ): Promise<ReportDocument> => {
+    const res = await authFetch(`${API_BASE}/reports/${datasetId}/ai-charts/inject`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed to inject business chart into report');
     return res.json();
   },
 

@@ -204,39 +204,48 @@ export const SettingsView: React.FC = () => {
   return (
     <div className="flex-1 overflow-y-auto p-3.5 sm:p-6 lg:p-8 pb-24 md:pb-28 space-y-6 sm:space-y-8 bg-[#090D16] max-w-4xl mx-auto w-full">
       <div className="space-y-4">
-        <div>
-          <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-            <Settings className="w-5 h-5 text-brand-400" />
-            <span>System Settings & Architecture</span>
-          </h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Configure analytical reasoning engines, external LLM providers, OpenAI models, and verify database connectivity.
-          </p>
+        {/* ── Page Header ── */}
+        <div className="view-header">
+          <div className="flex items-start gap-3">
+            <div className="dept-section-icon dept-section-icon-slate mt-0.5 shrink-0">
+              <Settings className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                <h2 className="view-header-title">System Settings &amp; Architecture</h2>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-slate-800/80 text-slate-300 border border-slate-700/50">
+                  <span className="status-dot-live" />
+                  Engine Online
+                </span>
+              </div>
+              <p className="view-header-subtitle">
+                Configure analytical reasoning engines, external LLM providers, OpenAI models, and verify database connectivity.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Global Key Status Banner */}
         {configStatus.openai_configured && (
-          <div className="p-4 rounded-2xl glass-3d-card bg-gradient-to-r from-cyan-950/60 via-slate-900/90 to-[#07131F] border border-cyan-500/40 shadow-[0_12px_30px_rgba(6,182,212,0.15)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fadeIn">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0 shadow-sm">
-                <Bot className="w-5 h-5" />
+          <div className="settings-card border-cyan-500/30 animate-fadeIn">
+            <div className="settings-card-header bg-gradient-to-r from-cyan-950/40 to-transparent">
+              <div className="dept-section-icon dept-section-icon-cyan shrink-0">
+                <Bot className="w-4 h-4" />
               </div>
-              <div>
+              <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h4 className="font-bold text-sm text-white">OpenAI Intelligence Engine Ready</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse" />
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold font-mono bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                    <span className="status-dot-live" />
                     {configStatus.openai_model || 'gpt-4o'}
                   </span>
                 </div>
-                <p className="text-xs text-slate-300 mt-0.5">
-                  High-speed SSE streaming, multi-model fallback cascade, and reasoning model integrations are enabled.
+                <p className="text-xs text-slate-400 mt-0.5">
+                  High-speed SSE streaming, multi-model fallback, and reasoning model integrations are enabled.
                 </p>
               </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/70 border border-cyan-500/30 px-3 py-1.5 rounded-xl">
-                Key: {configStatus.openai_masked || '••••••••'}
+              <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-500/25 px-3 py-1.5 rounded-xl shrink-0">
+                {configStatus.openai_masked || '••••••••'}
               </span>
             </div>
           </div>

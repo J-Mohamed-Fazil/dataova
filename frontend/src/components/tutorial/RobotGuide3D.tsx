@@ -552,8 +552,11 @@ export const RobotGuide3D: React.FC<RobotGuide3DProps> = ({
     // ── Animation loop (face canvas drawn every 2 frames) ─────────────
     const clock = new THREE.Clock();
 
+    let isTabVisible = !document.hidden;
+
     const animate = () => {
       animRef.current = requestAnimationFrame(animate);
+      if (!isTabVisible) return;
       frameCountRef.current++;
       const t = clock.getElapsedTime();
       const expr = expressionRef.current;
@@ -684,14 +687,29 @@ export const RobotGuide3D: React.FC<RobotGuide3DProps> = ({
         }
       }
 
-      // Draw face canvas every 2nd frame to halve texture-upload cost
-      if (frameCountRef.current % 2 === 0) {
+      // Draw face canvas: in xs size every 12 frames or on expression change, otherwise every 4 frames (15fps is optimal for face HUD and saves 75% GPU bus bandwidth)
+      const shouldDrawFace = size === 'xs'
+        ? frameCountRef.current % 12 === 0
+        : frameCountRef.current % 4 === 0;
+
+      if (shouldDrawFace) {
         drawFace(t);
       }
 
       renderer.render(scene, camera);
     };
 
+    isTabVisible = !document.hidden;
+    const handleVisChange = () => {
+      isTabVisible = !document.hidden;
+      if (isTabVisible) {
+        clock.getDelta(); // flush delta so no giant time jump
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisChange);
+
+    // Initial face render
+    drawFace(0);
     animate();
 
     const ro = new ResizeObserver(() => {
@@ -704,6 +722,7 @@ export const RobotGuide3D: React.FC<RobotGuide3DProps> = ({
 
     return () => {
       cancelAnimationFrame(animRef.current);
+      document.removeEventListener('visibilitychange', handleVisChange);
       ro.disconnect();
       // Dispose only instance-owned resources
       [bodyMat, accentMat, chromeMat, visorMat, cyanMat, accentGlow,

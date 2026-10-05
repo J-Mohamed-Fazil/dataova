@@ -473,20 +473,24 @@ export const ForecastView: React.FC = () => {
         
         <div className="pt-1.5 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="px-2.5 py-0.5 rounded-md badge-neon-blue text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-sm">
+            <div className="dept-section-icon dept-section-icon-indigo" style={{ width: '1.875rem', height: '1.875rem', borderRadius: '0.625rem' }}>
+              <TrendingUp className="w-3.5 h-3.5" />
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md badge-neon-blue text-[10px] font-black uppercase tracking-wider shadow-sm">
               <Sparkles className="w-3 h-3 text-cyan-400" />
               AI Predictive Studio
             </span>
             <span className="text-xs text-slate-400 flex items-center gap-1.5">
+              <span className="status-dot-live" />
               <span>Deterministic Trend Extrapolation</span>
-              <span className="text-slate-600">•</span>
+              <span className="text-slate-600">&bull;</span>
               <span className="text-cyan-400 font-mono text-[11px] bg-cyan-950/60 px-1.5 py-0.5 rounded border border-cyan-800/50">
                 {forecastData?.frequency} Frequency
               </span>
             </span>
           </div>
-          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight flex items-center gap-2 drop-shadow-sm">
-            Time-Series Forecasting & Scenario Simulation
+          <h1 className="view-header-title text-xl sm:text-2xl">
+            Time-Series Forecasting &amp; Scenario Simulation
           </h1>
         </div>
 

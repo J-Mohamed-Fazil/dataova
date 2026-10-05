@@ -200,3 +200,40 @@ def test_dedicated_pdf_executive_dashboard_with_ai_insights():
     assert len(pdf_bytes) > 2000
     assert pdf_bytes.startswith(b"%PDF")
 
+def test_ai_business_charts_api():
+    """Validates that the AI Business Chart generator synthesizes Pareto, Velocity, and Tier charts and injects into reports."""
+    load_resp = client.post("/api/samples/retail/load")
+    assert load_resp.status_code == 200
+    ds = load_resp.json()
+    ds_id = ds["id"]
+
+    # 1. Test Pareto business chart generation
+    pareto_resp = client.post(f"/api/reports/{ds_id}/ai-charts/generate", json={"chart_category": "pareto"})
+    assert pareto_resp.status_code == 200
+    pareto_data = pareto_resp.json()
+    assert pareto_data["count"] >= 1
+    p_chart = pareto_data["charts"][0]
+    assert "Pareto" in p_chart["title"] or "Driver" in p_chart["title"]
+    assert "insight" in p_chart
+    assert "share_pct" in p_chart["data"][0]
+
+    # 2. Test full AI synthesis suite
+    synth_resp = client.post(f"/api/reports/{ds_id}/ai-charts/generate", json={"count": 3})
+    assert synth_resp.status_code == 200
+    synth_data = synth_resp.json()
+    assert synth_data["count"] >= 2
+    for ch in synth_data["charts"]:
+        assert "data" in ch
+        assert len(ch["data"]) > 0
+        assert "insight" in ch
+
+    # 3. Test injecting chart into report
+    inject_resp = client.post(f"/api/reports/{ds_id}/ai-charts/inject", json={"chart": p_chart})
+    assert inject_resp.status_code == 200
+    updated_doc = inject_resp.json()
+    all_charts = []
+    for s in updated_doc["sections"]:
+        all_charts.extend(s.get("charts_included", []))
+    assert any(c.get("id") == p_chart["id"] for c in all_charts)
+
+

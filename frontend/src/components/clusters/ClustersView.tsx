@@ -243,19 +243,19 @@ export const ClustersView: React.FC = () => {
 
         <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-start gap-4">
-            <div className="p-3.5 sm:p-4 rounded-2xl bg-gradient-to-tr from-purple-600 via-indigo-600 to-cyan-600 text-white shadow-xl shadow-purple-600/30 border border-purple-400/30">
-              <Target className="w-7 h-7 sm:w-8 sm:h-8" />
+            <div className="dept-section-icon dept-section-icon-purple" style={{ width: '3rem', height: '3rem', borderRadius: '1rem' }}>
+              <Target className="w-6 h-6 text-purple-300" />
             </div>
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2.5">
-                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
+                <h1 className="view-header-title text-2xl sm:text-3xl font-black tracking-tight text-white drop-shadow-sm">
                   ML Cohort & Spatial Clustering
                 </h1>
-                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/40 shadow-sm flex items-center gap-1.5">
-                  <Sparkles className="w-3 h-3 text-purple-400 animate-spin" />
+                <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-md badge-neon-purple shadow-sm flex items-center gap-1.5">
+                  <span className="status-dot-live" />
                   K-Means++ Engine
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
                   {clusterData?.k} Natural Cohorts
                 </span>
               </div>

@@ -49,12 +49,12 @@ def test_audio_brief_generation(sample_retail_df):
 
     # Verify speakers alternate and have required attributes
     speakers = [t["speaker"] for t in brief["dialogue"]]
-    assert "Alex" in speakers
-    assert "Morgan" in speakers
+    assert "Luna" in speakers
+    assert "Nova" in speakers
     for turn in brief["dialogue"]:
         assert "text" in turn
         assert len(turn["text"]) > 10
-        assert turn["role"] in ["Lead Data Strategist", "Risk & Operations Analyst"]
+        assert turn["role"] in ["Curious Inquisitor (Moon Bot)", "Core Analytics Robot"]
 
 def test_scenario_planner_config_and_simulate(sample_retail_df):
     config = ScenarioPlanner.get_scenario_config(sample_retail_df)

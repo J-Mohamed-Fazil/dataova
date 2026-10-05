@@ -17,6 +17,7 @@ from app.services.file_processor import FileProcessor
 from app.services.report_service import ReportService
 from app.services.llm_orchestrator import LLMOrchestrator
 from app.services.executive_report_generator import ExecutiveReportGenerator
+from app.services.ai_business_chart_service import AIBusinessChartService
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 
@@ -24,6 +25,16 @@ class ExecutiveTemplateGenerateRequest(BaseModel):
     prompt: Optional[str] = None
     user_name: Optional[str] = "Mike Lock"
     user_role: Optional[str] = "UI Designer"
+    api_key: Optional[str] = None
+
+class GenerateBusinessChartsRequest(BaseModel):
+    prompt: Optional[str] = None
+    chart_category: Optional[str] = None
+    count: Optional[int] = 4
+
+class InjectBusinessChartRequest(BaseModel):
+    section_id: Optional[str] = None
+    chart: dict
 
 @router.get("/{dataset_id}", response_model=ReportDocumentSchema)
 def get_report(dataset_id: str, db: Session = Depends(get_db)):
@@ -448,5 +459,158 @@ async def generate_executive_template(dataset_id: str, payload: ExecutiveTemplat
         df_dict=dataframes,
         user_name=payload.user_name or "Mike Lock",
         user_role=payload.user_role or "UI Designer",
-        custom_prompt=payload.prompt
+        custom_prompt=payload.prompt,
+        api_key=payload.api_key
     )
+
+@router.post("/{dataset_id}/ai-charts/generate")
+async def generate_business_charts_endpoint(
+    dataset_id: str,
+    payload: Optional[GenerateBusinessChartsRequest] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Intelligently generates executive-tier business charts tailored to the dataset.
+    Supports Pareto driver analysis, velocity run-rate, value tiers, unit economics,
+    and custom executive prompts.
+    """
+    dataset = db.query(Dataset).filter(Dataset.id == dataset_id).first()
+    if not dataset:
+        raise HTTPException(status_code=404, detail="Dataset not found")
+
+    tables = db.query(TableMetadata).filter(TableMetadata.dataset_id == dataset_id).all()
+    dataframes: dict[str, pd.DataFrame] = {}
+    for t in tables:
+        try:
+            dfs = FileProcessor.read_file_to_dataframes(t.storage_path)
+            if t.table_name in dfs:
+                dataframes[t.table_name] = dfs[t.table_name]
+            elif dfs:
+                dataframes[t.table_name] = list(dfs.values())[0]
+        except Exception:
+            pass
+
+    if not dataframes:
+        raise HTTPException(status_code=400, detail="No readable tables found for this dataset")
+
+    kpi_records = db.query(KpiMetric).filter(KpiMetric.dataset_id == dataset_id).all()
+    kpis = [{
+        "display_name": k.display_name,
+        "formatted_value": k.formatted_value,
+        "value": k.value
+    } for k in kpi_records]
+
+    ins_records = db.query(Insight).filter(Insight.dataset_id == dataset_id).all()
+    insights = [{
+        "title": i.title,
+        "description": i.description,
+        "recommendation": i.recommendation,
+        "severity": i.severity
+    } for i in ins_records]
+
+    anom_records = db.query(AnomalyRecord).filter(AnomalyRecord.dataset_id == dataset_id).all()
+    anomalies = [{
+        "column_name": a.column_name,
+        "anomaly_count": a.anomaly_count,
+        "severity": a.severity
+    } for a in anom_records]
+
+    user_prompt = payload.prompt if payload else None
+    count = payload.count if (payload and payload.count) else 4
+    category = payload.chart_category if payload else None
+
+    primary_df = AIBusinessChartService.get_best_dataframe(dataframes)
+
+    # Direct category generator or full synthesis
+    if category == "pareto":
+        chart = AIBusinessChartService.generate_pareto_driver_chart(primary_df, domain=dataset.detected_domain)
+        charts = [chart] if chart else []
+    elif category == "velocity":
+        chart = AIBusinessChartService.generate_growth_velocity_chart(primary_df, domain=dataset.detected_domain)
+        charts = [chart] if chart else []
+    elif category == "tiers":
+        chart = AIBusinessChartService.generate_tier_segmentation_chart(primary_df, domain=dataset.detected_domain)
+        charts = [chart] if chart else []
+    elif category == "efficiency":
+        chart = AIBusinessChartService.generate_efficiency_matrix_chart(primary_df, domain=dataset.detected_domain)
+        charts = [chart] if chart else []
+    elif category == "actions":
+        chart = AIBusinessChartService.generate_recommendation_impact_chart(insights, domain=dataset.detected_domain)
+        charts = [chart] if chart else []
+    else:
+        charts = await AIBusinessChartService.synthesize_charts_for_dataset(
+            dataset_name=dataset.name,
+            domain=dataset.detected_domain,
+            dataframes=dataframes,
+            kpis=kpis,
+            insights=insights,
+            anomalies=anomalies,
+            prompt=user_prompt,
+            count=count
+        )
+
+    return {
+        "dataset_id": dataset_id,
+        "domain": dataset.detected_domain,
+        "count": len(charts),
+        "charts": charts
+    }
+
+@router.post("/{dataset_id}/ai-charts/inject", response_model=ReportDocumentSchema)
+def inject_business_chart_endpoint(
+    dataset_id: str,
+    payload: InjectBusinessChartRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Injects an AI-generated business chart into a specific section of the report
+    or creates a new Executive Visualizations section if none specified.
+    """
+    doc = db.query(ReportDocument).filter(ReportDocument.dataset_id == dataset_id).first()
+    if not doc:
+        raise HTTPException(status_code=404, detail="Report document not found")
+
+    chart = payload.chart
+    if not chart:
+        raise HTTPException(status_code=400, detail="Chart payload is required")
+
+    sec = None
+    if payload.section_id:
+        sec = db.query(ReportSection).filter(
+            ReportSection.id == payload.section_id,
+            ReportSection.report_id == doc.id
+        ).first()
+
+    if not sec:
+        # Check if an executive_charts section exists or find first section
+        sec = db.query(ReportSection).filter(
+            ReportSection.report_id == doc.id,
+            ReportSection.section_type.in_(["insights", "executive_summary", "key_metrics"])
+        ).first()
+
+    if sec:
+        current_charts = list(sec.charts_included or [])
+        # Avoid duplicate ids
+        existing_ids = {c.get("id") for c in current_charts if isinstance(c, dict)}
+        if chart.get("id") not in existing_ids:
+            current_charts.append(chart)
+            sec.charts_included = current_charts
+            from sqlalchemy.orm.attributes import flag_modified
+            flag_modified(sec, "charts_included")
+    else:
+        order = db.query(ReportSection).filter(ReportSection.report_id == doc.id).count()
+        new_sec = ReportSection(
+            report_id=doc.id,
+            section_type="insights",
+            title="Executive AI Visual Dashboards & Business Charts",
+            content="Targeted strategic business visualizations synthesized by AI to evaluate key commercial drivers.",
+            order_index=order,
+            charts_included=[chart],
+            tables_included=[]
+        )
+        db.add(new_sec)
+
+    db.commit()
+    db.refresh(doc)
+    return doc
+

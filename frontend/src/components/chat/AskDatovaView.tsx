@@ -452,11 +452,11 @@ export const AskDatovaView: React.FC<AskDatovaViewProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-transparent overflow-hidden">
-      {/* Top Banner — hidden in compact mode because Nova window chrome and context ribbon provide header */}
+      {/* Top Banner — hidden in compact mode */}
       {!compact && (
-        <div className="px-4 sm:px-6 py-2.5 border-b border-white/[0.07] bg-[#090D18] flex items-center justify-between z-10">
+        <div className="px-4 sm:px-6 py-3 border-b border-white/[0.06] bg-[#090D18]/90 flex items-center justify-between z-10 shrink-0">
           <div className="flex items-center gap-3">
-            {/* Back button to return to dashboard/overview */}
+            {/* Back button */}
             <button
               type="button"
               onClick={() => setActiveTab('overview')}
@@ -467,27 +467,27 @@ export const AskDatovaView: React.FC<AskDatovaViewProps> = ({
               <span>Back</span>
             </button>
 
-            {/* Nova avatar — static CSS, no WebGL in header */}
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-600/20 border border-cyan-500/30 flex items-center justify-center text-lg shrink-0">
-              🤖
+            {/* Nova avatar with dept-section-icon */}
+            <div className="dept-section-icon dept-section-icon-purple shrink-0" style={{ width: '2.5rem', height: '2.5rem', fontSize: '1.125rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Bot className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="font-extrabold text-sm text-white flex items-center gap-2">
-                <span>ASK DATOVA</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="font-extrabold text-sm text-white tracking-tight">ASK DATOVA</h2>
+                <span className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-300 border border-purple-500/30">
+                  <span className="status-dot-live" style={{ background: '#c084fc', boxShadow: '0 0 6px #c084fc' }} />
                   Nova AI Analyst
                 </span>
-              </h2>
-              <p className="text-[11px] text-slate-400">
-                Active Context: <span className="text-slate-200 font-semibold">{currentDataset.name}</span> • {currentDataset.detected_domain} • {currentDataset.row_count.toLocaleString()} rows
+              </div>
+              <p className="text-[10px] text-slate-400 mt-0.5">
+                Context: <span className="text-slate-200 font-semibold">{currentDataset.name}</span> &bull; {currentDataset.detected_domain} &bull; {currentDataset.row_count.toLocaleString()} rows
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-2">
-            <div className="hidden lg:flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 px-2.5 py-1 rounded-xl shadow-inner font-mono text-[11px]">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <div className="hidden lg:flex items-center gap-1.5 bg-slate-900/90 border border-slate-800/80 px-2.5 py-1 rounded-xl shadow-inner font-mono text-[10px]">
+              <span className="status-dot-live" />
               <span className="text-emerald-400 font-medium">{providerBadge}</span>
             </div>
 
@@ -499,17 +499,17 @@ export const AskDatovaView: React.FC<AskDatovaViewProps> = ({
                   className="btn-3d-secondary px-3 py-1.5 rounded-xl text-slate-300 hover:text-white text-xs font-medium flex items-center gap-1.5"
                 >
                   <Download className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Export Transcript</span>
+                  <span className="hidden sm:inline">Export</span>
                 </button>
 
                 <button
                   onClick={handleClearHistory}
                   disabled={isClearing}
                   title="Clear conversation history"
-                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-rose-500/20 border border-slate-800 hover:border-rose-500/40 text-slate-400 hover:text-rose-300 text-xs font-medium flex items-center gap-1.5 transition active:translate-y-0.5 shadow-sm"
+                  className="px-3 py-1.5 rounded-xl bg-slate-900/80 hover:bg-rose-500/15 border border-slate-800 hover:border-rose-500/35 text-slate-400 hover:text-rose-300 text-xs font-medium flex items-center gap-1.5 transition active:translate-y-0.5 shadow-sm"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Clear Chat</span>
+                  <span className="hidden sm:inline">Clear</span>
                 </button>
               </>
             )}

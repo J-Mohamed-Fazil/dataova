@@ -357,20 +357,21 @@ export const EerModelStudioView: React.FC = () => {
       {/* 1. Header Command Bar */}
       <div className="h-auto py-3 px-3.5 sm:px-6 border-b border-slate-800 bg-[#071126]/90 backdrop-blur-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0 z-20">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 via-purple-600 to-cyan-400 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.5)] border border-cyan-400/40">
-            <Network className="w-5 h-5 text-white" />
+          <div className="dept-section-icon dept-section-icon-purple" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.75rem' }}>
+            <Network className="w-4 h-4 text-purple-300" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-base font-black tracking-tight text-white font-sans">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h1 className="view-header-title text-sm sm:text-base font-black tracking-tight text-white font-sans">
                 E-ER Relational Model & Schema Studio
               </h1>
-              <span className="badge-neon-purple text-[9px] font-mono uppercase px-2 py-0.5 rounded font-extrabold">
+              <span className="badge-neon-purple text-[9px] font-mono uppercase px-2 py-0.5 rounded-md font-extrabold flex items-center gap-1">
+                <span className="status-dot-live" />
                 MODEL VIEW
               </span>
               {graphData && (
-                <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded-full border border-cyan-800/60">
-                  {graphData.total_tables} Tables &bull; {graphData.total_relationships} Relationships
+                <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/60 px-2 py-0.5 rounded-md border border-cyan-800/60">
+                  {graphData.total_tables} Tables • {graphData.total_relationships} Relationships
                 </span>
               )}
             </div>

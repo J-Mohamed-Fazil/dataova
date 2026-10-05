@@ -346,52 +346,85 @@ class ExecutiveReportGenerator:
 
         # 10. Statistical Business Insights & Executive Summary
         executive_summary = (
-            f"This executive performance review analyzes {total_rows:,} records across {dataset_name}, highlighting steady operational momentum and healthy cross-functional output. "
-            f"Key performance indicators have sustained positive trajectory pacing at +24.8% relative to baseline benchmarks, supported by reliable activity across primary operational categories. "
-            f"Resource allocation remains well-aligned with organizational goals, maintaining stable delivery throughput while keeping operational variance and concentration risks within safe thresholds. "
-            f"Strategic priorities for the upcoming cycle focus on expanding high-performing initiatives, streamlining administrative turnaround times, and sustaining rigorous data verification."
+            f"This executive performance review looks at {total_rows:,} records from {dataset_name}, showing steady and healthy progress across the board. "
+            f"Our most important numbers have grown by nearly 25% compared to our past performance, which means things are moving in the right direction. "
+            f"Resources and team efforts are well balanced, and we are completing tasks smoothly without major bottlenecks or risks. "
+            f"Looking ahead, our main goals are to keep growing our best programs, speed up our daily work, and keep our information accurate."
         )
 
         plain_summary = (
-            f"Across all {total_rows:,} records tracked in {dataset_name}, overall performance and operational health remain strong and dependable. "
-            f"The core metrics increased by nearly 25% over the past period, reflecting steady participation and healthy delivery across our primary initiatives. "
-            f"Workflows are running smoothly with no major bottlenecks, ensuring that resources and support are reaching participants efficiently. "
-            f"Going forward, leadership can build upon this solid foundation by expanding the most successful programs and continuing to streamline administrative processes."
+            f"Looking at all {total_rows:,} records in {dataset_name}, we can see that overall performance and health are strong and dependable. "
+            f"Our key numbers increased by about 25% over the past period, showing that more people are participating and our team is delivering good results. "
+            f"Everything is running smoothly with no major hold-ups, meaning our support and services are reaching everyone efficiently. "
+            f"Moving forward, we can build on this great foundation by expanding our most successful programs and making our daily processes even faster."
         )
 
         business_insights = [
             {
-                "tag": "Key Growth Driver",
+                "tag": "Key Growth Area",
                 "plain_tag": "Biggest Win",
-                "title": "Strong Core Program Participation & Output",
+                "title": "Strong Core Program Participation",
                 "plain_title": "More People Benefiting from Core Programs",
-                "detail": f"Analysis of {dataset_name} demonstrates that primary operational activities generate the majority of total output, maintaining an 18.4% efficiency advantage compared to historical baselines.",
-                "plain_detail": f"Our main programs and flagship initiatives are reaching more participants each week, driving over 80% of our total positive impact while maintaining high satisfaction and quality standards.",
-                "impact": "+18.4% Efficiency",
+                "detail": f"Our main activities in {dataset_name} are creating the most value, performing 18% better than we expected.",
+                "plain_detail": f"Our main programs and top projects are reaching more people every week, driving over 80% of our positive results while keeping quality high.",
+                "impact": "+18% More Efficient",
                 "plain_impact": "+18% More People Helped",
                 "is_positive": True
             },
             {
-                "tag": "Operational Delivery",
+                "tag": "Faster Delivery",
                 "plain_tag": "Faster Service",
-                "title": "Turnaround Velocity & Process Stabilization",
+                "title": "Turnaround Times are Improving",
                 "plain_title": "Faster Delivery and Shorter Wait Times",
-                "detail": "Standard deviation across key delivery milestones has contracted by 14.2%, demonstrating increased predictability, fewer operational delays, and stabilized execution across all tiers.",
-                "plain_detail": "Turnaround times for key services have improved significantly as team workflows became more streamlined, reducing backlogs and ensuring that requests are fulfilled without unnecessary delays.",
-                "impact": "-14.2% Variance",
+                "detail": "Wait times and delays across our main tasks have gone down by 14%, showing that our team is working much faster.",
+                "plain_detail": "Wait times for our key services have gotten much shorter as team workflows became smoother, reducing backlogs and ensuring that requests are fulfilled without delays.",
+                "impact": "-14% Delays",
                 "plain_impact": "14% Faster Turnaround",
                 "is_positive": True
             },
             {
-                "tag": "Strategic Opportunity",
+                "tag": "Opportunity to Grow",
                 "plain_tag": "Area to Support",
-                "title": "Targeted Support for Emerging Cohorts",
+                "title": "Targeted Support for Smaller Groups",
                 "plain_title": "Supporting Smaller Community Groups",
-                "detail": "Secondary segments exhibit minor performance dispersion, presenting an opportunity for targeted capacity building to elevate overall portfolio resilience and prevent reliance on top cohorts alone.",
-                "plain_detail": "While our main programs are thriving, several smaller initiatives and community groups will benefit from dedicated resources and guidance to help them grow at the same healthy pace.",
+                "detail": "Some of our smaller segments need a bit more help to grow so we aren't just relying on our top programs.",
+                "plain_detail": "While our main programs are doing great, several smaller initiatives and community groups could use some extra resources and guidance to help them grow just as well.",
                 "impact": "Controlled Risk",
                 "plain_impact": "Action Plan Ready",
                 "is_positive": False
+            },
+            {
+                "tag": "Customer Satisfaction",
+                "plain_tag": "Happy Users",
+                "title": "People Love What We Do",
+                "plain_title": "High Praise from the Community",
+                "detail": "Feedback scores remain very high, meaning people are happy with the services they receive.",
+                "plain_detail": "People are very happy with our services! Feedback has been consistently positive, showing that our efforts are truly making a difference.",
+                "impact": "Top Tier Feedback",
+                "plain_impact": "Happy Community",
+                "is_positive": True
+            },
+            {
+                "tag": "Cost Savings",
+                "plain_tag": "Saving Money",
+                "title": "Doing More With Less",
+                "plain_title": "Saving Money on Daily Tasks",
+                "detail": "We have reduced the cost of our daily operations by finding better ways to do things.",
+                "plain_detail": "We found ways to save money without lowering quality! By working smarter, we lowered our daily costs significantly.",
+                "impact": "Lower Costs",
+                "plain_impact": "Money Saved",
+                "is_positive": True
+            },
+            {
+                "tag": "Future Planning",
+                "plain_tag": "Looking Ahead",
+                "title": "Ready for Next Month",
+                "plain_title": "Prepared for Future Growth",
+                "detail": "Our current progress puts us in a great spot to handle even more growth next month.",
+                "plain_detail": "We are fully ready for the future! Our recent success means we have the tools and team ready to handle more work next month.",
+                "impact": "High Readiness",
+                "plain_impact": "Ready to Grow",
+                "is_positive": True
             }
         ]
 
@@ -486,7 +519,8 @@ class ExecutiveReportGenerator:
         df_dict: Dict[str, pd.DataFrame],
         user_name: Optional[str] = "Mike Lock",
         user_role: Optional[str] = "UI Designer",
-        custom_prompt: Optional[str] = None
+        custom_prompt: Optional[str] = None,
+        api_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Async generator that uses LLMOrchestrator to enrich and tailor executive insights.
@@ -503,8 +537,8 @@ class ExecutiveReportGenerator:
         primary_df = next(iter(df_dict.values())) if df_dict else pd.DataFrame()
         provider = LLMOrchestrator.get_active_provider()
 
-        # If LLM provider is available (Gemini / OpenAI / etc.), enhance insights via AI
-        if provider != "deterministic_engine" or custom_prompt:
+        # If LLM provider is available or custom API key / prompt provided, enhance insights via AI
+        if provider != "deterministic_engine" or custom_prompt or api_key:
             try:
                 col_info = [{"name": c, "dtype": str(primary_df[c].dtype)} for c in primary_df.columns[:15]] if not primary_df.empty else []
                 sample_records = primary_df.head(4).to_dict(orient="records") if not primary_df.empty else []
@@ -512,16 +546,16 @@ class ExecutiveReportGenerator:
                 system_prompt = (
                     "You are Datova Executive AI, an elite strategic advisor. "
                     "Analyze the provided dataset summary and generate high-impact executive dashboard data. "
-                    "Write in normal, clear, professional English with complete, informative explanations. "
-                    "Avoid overly brief 1-line bullet points or unnecessary jargon. Keep explanations accessible to any stakeholder. "
+                    "Write in VERY simple, layman's terms. Do not use ANY technical jargon, complex business terms, or complicated sentences. "
+                    "Make it easily understandable for a common user. "
                     "You MUST respond ONLY with valid JSON matching this exact structure:\n"
                     "{\n"
-                    '  "executive_summary": "A comprehensive 3-to-4 sentence professional executive overview explaining operational trends, key performance drivers, and high-level strategic takeaway.",\n'
+                    '  "executive_summary": "A very simple, clear 3-to-4 sentence summary explaining what the numbers mean for a regular person.",\n'
                     '  "business_insights": [\n'
-                    '    {"tag": "Key Growth Driver", "title": "...", "detail": "A clear, complete 2-sentence explanation of what the metric indicates and why it matters to the organization.", "impact": "+$1.2M ARR", "is_positive": true},\n'
-                    '    {"tag": "Operational Delivery", "title": "...", "detail": "A clear, complete 2-sentence explanation of workflow improvements and delivery consistency.", "impact": "+24% Velocity", "is_positive": true},\n'
-                    '    {"tag": "Strategic Opportunity", "title": "...", "detail": "A clear, complete 2-sentence explanation of areas needing support and actionable risk mitigation.", "impact": "Controlled Risk", "is_positive": false}\n'
-                    "  ],\n"
+                    '    {"tag": "Great News", "title": "...", "detail": "A very simple, 2-sentence explanation in plain English.", "impact": "+$1.2M Added", "is_positive": true},\n'
+                    '    {"tag": "Getting Faster", "title": "...", "detail": "A very simple explanation of how things are moving faster.", "impact": "+24% Speed", "is_positive": true},\n'
+                    '    {"tag": "Things to Fix", "title": "...", "detail": "A very simple explanation of an area that needs some help.", "impact": "Needs Help", "is_positive": false}\n'
+                    "  ], // Generate 6 to 8 insights instead of just 3\n"
                     '  "top_kpis": [\n'
                     '    {"title": "...", "value": "$...", "delta": "+18.2%", "is_positive": true, "icon": "clock"}\n'
                     "  ]\n"
@@ -540,7 +574,8 @@ class ExecutiveReportGenerator:
                 llm_response = await LLMOrchestrator.query_llm(
                     system_prompt=system_prompt,
                     user_prompt=user_prompt,
-                    response_format_json=True
+                    response_format_json=True,
+                    api_key=api_key
                 )
 
                 parsed = json.loads(llm_response)
@@ -548,7 +583,7 @@ class ExecutiveReportGenerator:
                     if parsed.get("executive_summary"):
                         base_data["executive_summary"] = parsed["executive_summary"]
                     if parsed.get("business_insights") and isinstance(parsed["business_insights"], list):
-                        base_data["business_insights"] = parsed["business_insights"][:3]
+                        base_data["business_insights"] = parsed["business_insights"][:8]
                     if parsed.get("top_kpis") and isinstance(parsed["top_kpis"], list) and len(parsed["top_kpis"]) >= 4:
                         icons = ["clock", "monitor", "history", "file-text"]
                         for i in range(4):
@@ -571,7 +606,8 @@ class ExecutiveReportGenerator:
         df_dict: Dict[str, pd.DataFrame],
         user_name: Optional[str] = "Mike Lock",
         user_role: Optional[str] = "UI Designer",
-        custom_prompt: Optional[str] = None
+        custom_prompt: Optional[str] = None,
+        api_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """Synchronous wrapper for generate_template_data."""
         try:
@@ -593,7 +629,8 @@ class ExecutiveReportGenerator:
                         df_dict=df_dict,
                         user_name=user_name,
                         user_role=user_role,
-                        custom_prompt=custom_prompt
+                        custom_prompt=custom_prompt,
+                        api_key=api_key
                     )
                 )
         except Exception:

@@ -207,7 +207,7 @@ export const NovaFloatingInsightWidget: React.FC<NovaFloatingInsightWidgetProps>
     }
   };
 
-  // Corner resizing tracking
+  const [isActivelyResizing, setIsActivelyResizing] = useState(false);
   const isResizing = useRef(false);
   const resizeStart = useRef<{
     mx: number;
@@ -225,6 +225,7 @@ export const NovaFloatingInsightWidget: React.FC<NovaFloatingInsightWidgetProps>
     e.preventDefault();
     (e.target as HTMLElement).setPointerCapture(e.pointerId);
     isResizing.current = true;
+    setIsActivelyResizing(true);
     resizeStart.current = {
       mx: e.clientX,
       my: e.clientY,
@@ -254,6 +255,7 @@ export const NovaFloatingInsightWidget: React.FC<NovaFloatingInsightWidgetProps>
   const onResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     if (isResizing.current) {
       isResizing.current = false;
+      setIsActivelyResizing(false);
     }
   };
 
@@ -478,7 +480,9 @@ export const NovaFloatingInsightWidget: React.FC<NovaFloatingInsightWidgetProps>
 
           <div
             style={panelStyle}
-            className={`flex flex-col bg-[#080D18] border border-cyan-500/35 shadow-[0_24px_80px_rgba(0,0,0,0.92),0_0_50px_rgba(6,182,212,0.18)] overflow-hidden transition-all duration-150 animate-fadeIn ${
+            className={`flex flex-col bg-[#080D18] border border-cyan-500/35 shadow-[0_24px_80px_rgba(0,0,0,0.92),0_0_50px_rgba(6,182,212,0.18)] overflow-hidden ${
+              isActivelyResizing ? 'transition-none' : 'transition-[width,height,transform,opacity] duration-150'
+            } animate-fadeIn ${
               windowMode === 'fullscreen' ? 'rounded-none' : 'rounded-2xl'
             }`}
             onClick={(e) => e.stopPropagation()}

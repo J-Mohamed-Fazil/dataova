@@ -417,6 +417,27 @@ export const DashboardView: React.FC = () => {
 
   return (
     <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6 lg:p-8 pb-24 md:pb-28 space-y-5 sm:space-y-6 bg-transparent max-w-7xl mx-auto w-full">
+      {/* ── Page Header ── */}
+      <div className="view-header">
+        <div className="flex items-start gap-3">
+          <div className="dept-section-icon dept-section-icon-cyan mt-0.5 shrink-0">
+            <BarChart2 className="w-4 h-4" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5 flex-wrap">
+              <h2 className="view-header-title">Dashboard Studio</h2>
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 border border-cyan-500/30">
+                <span className="status-dot-live" />
+                {totalCharts} charts &bull; {sheets.length} sheets
+              </span>
+            </div>
+            <p className="view-header-subtitle">
+              Interactive chart studio &mdash; drag, resize, and AI-generate visualizations for {currentDataset.name}
+            </p>
+          </div>
+        </div>
+      </div>
+
       {/* Toast Notification */}
       {toastMessage && (
         <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-600/20 via-cyan-600/20 to-emerald-600/20 border border-blue-500/40 text-xs text-white flex items-center justify-between shadow-lg shadow-blue-600/20 animate-fadeIn backdrop-blur-xl">

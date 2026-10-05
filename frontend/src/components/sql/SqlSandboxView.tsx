@@ -271,8 +271,11 @@ export const SqlSandboxView: React.FC = () => {
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-cyan-500 via-blue-600 to-indigo-500 shadow-sm" />
         <div className="pt-2 space-y-1.5 translate-z-10">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="px-2.5 py-0.5 rounded-full badge-neon-blue text-[10px] font-black uppercase tracking-wider flex items-center gap-1 font-mono shadow-sm">
-              <Terminal className="w-3 h-3 text-cyan-400" />
+            <div className="dept-section-icon dept-section-icon-cyan" style={{ width: '1.875rem', height: '1.875rem', borderRadius: '0.625rem' }}>
+              <Terminal className="w-3.5 h-3.5 text-cyan-400" />
+            </div>
+            <span className="px-2.5 py-0.5 rounded-md badge-neon-blue text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 font-mono shadow-sm">
+              <span className="status-dot-live" />
               SQL & Analytics Lab
             </span>
             {hasRelationships && (
@@ -286,7 +289,7 @@ export const SqlSandboxView: React.FC = () => {
               <span>{tables.length} Table{tables.length > 1 ? 's' : ''} Live</span>
             </span>
           </div>
-          <h1 className="text-xl font-black text-white tracking-tight flex items-center gap-2 drop-shadow-sm">
+          <h1 className="view-header-title text-xl font-black text-white tracking-tight flex items-center gap-2 drop-shadow-sm">
             Natural Language SQL Lab & Python Sandbox
           </h1>
         </div>

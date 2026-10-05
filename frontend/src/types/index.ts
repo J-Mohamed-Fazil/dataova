@@ -603,8 +603,10 @@ export interface SqlTranslateResult {
 // -------------------------------------------------------------
 export interface AudioDialogueTurn {
   id: number;
-  speaker: 'Alex' | 'Morgan';
+  speaker: 'Luna' | 'Nova' | 'Alex' | 'Morgan' | string;
   role: string;
+  chapter?: string;
+  turn_type?: 'question' | 'answer' | string;
   text: string;
   emphasis: 'normal' | 'highlight' | 'caution';
 }

@@ -24,6 +24,7 @@ import {
   LayoutDashboard,
   Zap,
   ChevronRight,
+  ChevronDown,
   Info,
   Presentation,
   Volume2,
@@ -36,7 +37,12 @@ import {
   Compass,
   CheckCircle2,
   Clock,
-  ArrowUpRight
+  ArrowUpRight,
+  BookOpen,
+  Eye,
+  Printer,
+  Copy,
+  X,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -66,17 +72,26 @@ import {
 } from '../../types';
 import { PresentationDeckModal } from './PresentationDeckModal';
 import { ExecutiveDashboardReportModal } from './ExecutiveDashboardReportModal';
+import { AIBusinessChartModal } from './AIBusinessChartModal';
 
 const PALETTES = [
-  '#2563eb', // Royal Blue
-  '#0284c7', // Sky Blue
-  '#0d9488', // Teal
-  '#3b82f6', // Blue
-  '#10b981', // Emerald
-  '#f59e0b', // Amber
-  '#06b6d4', // Cyan
-  '#f43f5e', // Rose
+  '#2563eb', '#0284c7', '#0d9488', '#3b82f6',
+  '#10b981', '#f59e0b', '#06b6d4', '#f43f5e',
 ];
+
+const SECTION_COLORS: Record<string, { border: string; bg: string; icon: string }> = {
+  executive_summary: { border: 'border-l-indigo-500',  bg: 'bg-indigo-500/[0.06]',  icon: 'text-indigo-300' },
+  dataset_overview:  { border: 'border-l-emerald-500', bg: 'bg-emerald-500/[0.06]', icon: 'text-emerald-300' },
+  key_metrics:       { border: 'border-l-sky-500',     bg: 'bg-sky-500/[0.06]',     icon: 'text-sky-300' },
+  segment_analysis:  { border: 'border-l-cyan-500',    bg: 'bg-cyan-500/[0.06]',    icon: 'text-cyan-300' },
+  trend_analysis:    { border: 'border-l-blue-500',    bg: 'bg-blue-500/[0.06]',    icon: 'text-blue-300' },
+  data_quality:      { border: 'border-l-amber-500',   bg: 'bg-amber-500/[0.06]',   icon: 'text-amber-300' },
+  anomalies:         { border: 'border-l-rose-500',    bg: 'bg-rose-500/[0.06]',    icon: 'text-rose-300' },
+  recommendations:   { border: 'border-l-emerald-400', bg: 'bg-emerald-400/[0.06]', icon: 'text-emerald-300' },
+  ai_deepen:         { border: 'border-l-violet-500',  bg: 'bg-violet-500/[0.06]',  icon: 'text-violet-300' },
+  insights:          { border: 'border-l-purple-500',  bg: 'bg-purple-500/[0.06]',  icon: 'text-purple-300' },
+};
+const DEFAULT_SECTION_COLOR = { border: 'border-l-slate-600', bg: 'bg-slate-800/20', icon: 'text-slate-300' };
 
 // Markdown and Inline Formatting Parser
 const renderFormattedText = (text: string): React.ReactNode => {
@@ -174,8 +189,8 @@ const FormattedContent: React.FC<{ content: string }> = ({ content }) => {
           <div key={pIdx} className="space-y-2">
             {lines.map((line, lIdx) => {
               const trimmed = line.trim();
-              if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-                const bulletText = trimmed.replace(/^[•\-]\s*/, '');
+              if (trimmed.startsWith('â€¢') || trimmed.startsWith('-')) {
+                const bulletText = trimmed.replace(/^[â€¢\-]\s*/, '');
                 return (
                   <div key={lIdx} className="flex items-start gap-2.5 my-1.5 text-slate-300 pl-1 p-2 rounded-lg bg-slate-900/30 border border-slate-800/40 hover:border-slate-700/60 transition">
                     <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 flex-shrink-0 mt-2 shadow-[0_0_8px_rgba(6,182,212,0.6)]" />
@@ -222,18 +237,50 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
     const val = typeof dataPoint.value === 'number'
       ? dataPoint.value.toLocaleString(undefined, { maximumFractionDigits: 2 })
       : dataPoint.value;
+    const sharePct = dataPoint.payload?.share_pct;
+    const cumShare = dataPoint.payload?.cumulative_share;
+    const count = dataPoint.payload?.count;
+    const varPct = dataPoint.payload?.variance_pct;
 
     return (
-      <div className="p-3 rounded-xl bg-[#090D16]/95 border border-slate-700/80 shadow-2xl backdrop-blur-md text-xs space-y-1 z-50">
-        <p className="font-semibold text-slate-300">{label || dataPoint.name || 'Metric'}</p>
-        <div className="flex items-center gap-2">
-          <span
-            className="w-2.5 h-2.5 rounded-full shadow-sm"
-            style={{ backgroundColor: dataPoint.fill || dataPoint.color || '#6366f1' }}
-          />
-          <span className="text-slate-400 font-mono">Value:</span>
+      <div className="p-3.5 rounded-xl bg-[#090D16]/98 border border-slate-700/80 shadow-2xl backdrop-blur-md text-xs space-y-1.5 z-50 min-w-[160px]">
+        <p className="font-bold text-slate-200 border-b border-slate-800 pb-1">{label || dataPoint.name || 'Metric'}</p>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="w-2.5 h-2.5 rounded-full shadow-sm"
+              style={{ backgroundColor: dataPoint.fill || dataPoint.color || '#6366f1' }}
+            />
+            <span className="text-slate-400 font-mono text-[11px]">Value:</span>
+          </div>
           <span className="font-black text-white font-mono">{val}</span>
         </div>
+        {sharePct !== undefined && (
+          <div className="flex items-center justify-between text-[11px] text-cyan-300 font-mono">
+            <span>Contribution Share:</span>
+            <span className="font-bold">{sharePct}%</span>
+          </div>
+        )}
+        {cumShare !== undefined && (
+          <div className="flex items-center justify-between text-[11px] text-indigo-300 font-mono">
+            <span>Cumulative:</span>
+            <span className="font-bold">{cumShare}%</span>
+          </div>
+        )}
+        {count !== undefined && (
+          <div className="flex items-center justify-between text-[11px] text-slate-400 font-mono">
+            <span>Records:</span>
+            <span>{count.toLocaleString()}</span>
+          </div>
+        )}
+        {varPct !== undefined && (
+          <div className="flex items-center justify-between text-[11px] font-mono">
+            <span className="text-slate-400">vs Benchmark:</span>
+            <span className={`font-bold ${varPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {varPct >= 0 ? `+${varPct}%` : `${varPct}%`}
+            </span>
+          </div>
+        )}
       </div>
     );
   }
@@ -243,49 +290,75 @@ const CustomChartTooltip = ({ active, payload, label }: any) => {
 // Visual Dashboard Chart Component with Meaningful Insight Callout
 const ReportDashboardChartCard: React.FC<{ chart: ReportChartItem }> = ({ chart }) => {
   const data = chart.data || [];
-  const chartType = (chart.chart_type || 'bar').toLowerCase();
+  const baseType = (chart.chart_type || 'bar').toLowerCase();
+  const [viewType, setViewType] = useState<'bar' | 'pie' | 'area'>(
+    baseType === 'line' || baseType === 'area' ? 'area' : baseType === 'pie' ? 'pie' : 'bar'
+  );
   const insight = chart.insight;
 
   return (
-    <div className="card-3d-interactive glass-3d-card rounded-2xl p-6 shadow-xl space-y-5 hover:border-cyan-500/40 transition flex flex-col justify-between">
+    <div className="card-3d-interactive glass-3d-card rounded-2xl p-5 shadow-xl space-y-4 hover:border-cyan-500/40 transition flex flex-col justify-between">
       {/* Chart Header Bar */}
       <div>
-        <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-3.5 mb-1">
+        <div className="flex items-center justify-between gap-3 border-b border-slate-800/80 pb-3 mb-2">
           <div className="min-w-0">
             <h5 className="text-sm font-bold text-white tracking-tight flex items-center gap-2 truncate">
-              {chartType === 'line' || chartType === 'area' ? (
+              {viewType === 'area' ? (
                 <Activity className="w-4 h-4 text-sky-400 flex-shrink-0" />
-              ) : chartType === 'pie' ? (
+              ) : viewType === 'pie' ? (
                 <PieChart className="w-4 h-4 text-cyan-400 flex-shrink-0" />
               ) : (
-                <BarChart3 className="w-4 h-4 text-brand-400 flex-shrink-0" />
+                <BarChart3 className="w-4 h-4 text-indigo-400 flex-shrink-0" />
               )}
               <span className="truncate">{chart.title}</span>
             </h5>
             {chart.subtitle && (
-              <p className="text-[11px] text-slate-400 mt-1 truncate leading-normal">{chart.subtitle}</p>
+              <p className="text-[11px] text-slate-400 mt-0.5 truncate leading-normal">{chart.subtitle}</p>
             )}
           </div>
-          {chart.metric_highlight && (
-            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-brand-500/15 text-brand-300 border border-brand-500/30 flex-shrink-0">
-              {chart.metric_highlight}
-            </span>
-          )}
+
+          <div className="flex items-center gap-2 shrink-0">
+            {/* View Switcher Toggle for non-time-series */}
+            {baseType !== 'line' && (
+              <div className="flex items-center bg-slate-900/90 rounded-lg p-0.5 border border-slate-800">
+                <button
+                  onClick={() => setViewType('bar')}
+                  className={`p-1 rounded text-[10px] transition ${viewType === 'bar' ? 'bg-cyan-500/30 text-cyan-200' : 'text-slate-500 hover:text-white'}`}
+                  title="Bar View"
+                >
+                  <BarChart3 className="w-3 h-3" />
+                </button>
+                <button
+                  onClick={() => setViewType('pie')}
+                  className={`p-1 rounded text-[10px] transition ${viewType === 'pie' ? 'bg-cyan-500/30 text-cyan-200' : 'text-slate-500 hover:text-white'}`}
+                  title="Donut / Contribution View"
+                >
+                  <PieChart className="w-3 h-3" />
+                </button>
+              </div>
+            )}
+
+            {chart.metric_highlight && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold font-mono bg-cyan-500/15 text-cyan-300 border border-cyan-500/30 flex-shrink-0">
+                {chart.metric_highlight}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Visual Recharts Render */}
-        <div className="w-full h-64 pt-3">
+        <div className="w-full h-64 pt-2">
           {data.length === 0 ? (
             <div className="w-full h-full flex items-center justify-center text-xs text-slate-500 italic">
               No computed observations available
             </div>
-          ) : chartType === 'line' || chartType === 'area' ? (
+          ) : viewType === 'area' ? (
             <ResponsiveContainer width="100%" height="100%">
               <AreaChart data={data} margin={{ top: 14, right: 20, left: 14, bottom: 28 }}>
                 <defs>
                   <linearGradient id={`report-area-${chart.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                    <stop offset="5%" stopColor="#06b6d4" stopOpacity={0.4} />
+                    <stop offset="95%" stopColor="#06b6d4" stopOpacity={0.0} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -302,63 +375,67 @@ const ReportDashboardChartCard: React.FC<{ chart: ReportChartItem }> = ({ chart 
                 <Area
                   type="monotone"
                   dataKey="value"
-                  stroke="#6366f1"
+                  stroke="#06b6d4"
                   strokeWidth={2.5}
                   fillOpacity={1}
                   fill={`url(#report-area-${chart.id})`}
-                  dot={{ fill: '#6366f1', r: 3 }}
-                  activeDot={{ r: 5, fill: '#818cf8', stroke: '#fff' }}
+                  dot={{ fill: '#06b6d4', r: 3 }}
+                  activeDot={{ r: 5, fill: '#38bdf8', stroke: '#fff' }}
                 />
               </AreaChart>
             </ResponsiveContainer>
-          ) : chartType === 'treemap' ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <Treemap
-                data={data.map((d, i) => ({
-                  name: d.label || d.name || `Tile ${i + 1}`,
-                  value: typeof d.value === 'number' ? d.value : 1,
-                  size: typeof d.value === 'number' ? d.value : 1
-                }))}
-                dataKey="value"
-                stroke="#0B1120"
-                isAnimationActive={true}
-              >
-                <Tooltip content={<CustomChartTooltip />} />
-              </Treemap>
-            </ResponsiveContainer>
-          ) : chartType === 'pie' ? (
-            <ResponsiveContainer width="100%" height="100%">
-              <RechartsPieChart>
-                <Tooltip content={<CustomChartTooltip />} />
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  nameKey="label"
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={75}
-                  paddingAngle={3}
-                  cornerRadius={4}
-                >
-                  {data.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={PALETTES[index % PALETTES.length]}
-                      stroke="#090D16"
-                      strokeWidth={2}
-                    />
-                  ))}
-                </Pie>
-              </RechartsPieChart>
-            </ResponsiveContainer>
+          ) : viewType === 'pie' ? (
+            <div className="flex items-center justify-center h-full gap-4">
+              <div className="w-44 h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Tooltip content={<CustomChartTooltip />} />
+                    <Pie
+                      data={data}
+                      dataKey="value"
+                      nameKey="label"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={70}
+                      paddingAngle={3}
+                      cornerRadius={4}
+                    >
+                      {data.map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={PALETTES[index % PALETTES.length]}
+                          stroke="#090D16"
+                          strokeWidth={2}
+                        />
+                      ))}
+                    </Pie>
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Legend with share percentages */}
+              <div className="space-y-1 max-h-48 overflow-y-auto text-[11px] pr-2 flex-1">
+                {data.map((d, index) => (
+                  <div key={index} className="flex items-center justify-between gap-2 text-slate-300">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: PALETTES[index % PALETTES.length] }} />
+                      <span className="truncate">{d.label}</span>
+                    </div>
+                    <span className="font-mono font-bold text-white shrink-0">
+                      {d.share_pct !== undefined ? `${d.share_pct}%` : d.value?.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
           ) : (
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data} margin={{ top: 14, right: 20, left: 14, bottom: 28 }}>
                 <defs>
                   <linearGradient id={`report-bar-${chart.id}`} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#818cf8" stopOpacity={1} />
-                    <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.8} />
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={1} />
+                    <stop offset="100%" stopColor="#3b82f6" stopOpacity={0.8} />
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
@@ -389,22 +466,22 @@ const ReportDashboardChartCard: React.FC<{ chart: ReportChartItem }> = ({ chart 
 
       {/* Meaningful Insight Callout Banner */}
       {insight && (
-        <div className="rounded-xl p-4 bg-gradient-to-r from-brand-950/50 via-slate-900/60 to-brand-950/30 border border-brand-500/30 text-xs space-y-2 shadow-inner mt-2">
+        <div className="rounded-xl p-3.5 bg-gradient-to-r from-cyan-950/40 via-indigo-950/30 to-purple-950/20 border border-cyan-500/30 text-xs space-y-1.5 shadow-inner mt-2">
           <div className="flex items-center gap-2">
             <Lightbulb className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
             <h6 className="font-bold text-white tracking-tight text-xs flex items-center gap-1.5 truncate">
-              <span className="text-[10px] font-mono text-brand-300 font-extrabold uppercase px-2 py-0.5 rounded bg-brand-500/20 border border-brand-500/30">
+              <span className="text-[9px] font-mono text-cyan-300 font-extrabold uppercase px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/30">
                 Key Insight
               </span>
               <span className="truncate">{insight.headline}</span>
             </h6>
           </div>
-          <p className="text-slate-300 text-xs leading-relaxed pl-5">
+          <p className="text-slate-300 text-[11px] leading-relaxed pl-5">
             {insight.description}
           </p>
           {insight.impact && (
-            <div className="pl-5 pt-0.5 flex items-center gap-1 text-[10px] text-brand-300/90 font-medium">
-              <ChevronRight className="w-3 h-3 text-brand-400" />
+            <div className="pl-5 pt-0.5 flex items-center gap-1 text-[10px] text-cyan-300 font-medium">
+              <ChevronRight className="w-3 h-3 text-cyan-400" />
               <span>Takeaway: {insight.impact}</span>
             </div>
           )}
@@ -490,7 +567,7 @@ const ReportTableRenderer: React.FC<{ table: ReportTable }> = ({ table }) => {
                   const isRight = align === 'right';
                   const isCenter = align === 'center';
                   const alignClass = isRight ? 'text-right' : isCenter ? 'text-center' : 'text-left';
-                  const cellText = String(cell ?? '—');
+                  const cellText = String(cell ?? 'â€”');
 
                   return (
                     <td
@@ -611,7 +688,7 @@ const cleanTextForSpeech = (raw: string): string => {
     .replace(/\*([^*]+)\*/g, '$1')
     .replace(/_([^_]+)_/g, '$1')
     .replace(/#+\s+/g, '')
-    .replace(/^[•\-\*]\s+/gm, '')
+    .replace(/^[â€¢\-\*]\s+/gm, '')
     .replace(/\n+/g, ' ')
     .replace(/\s{2,}/g, ' ')
     .trim();
@@ -676,6 +753,12 @@ export const ReportView: React.FC = () => {
   const [isDeepening, setIsDeepening] = useState<boolean>(false);
   const [isDeckOpen, setIsDeckOpen] = useState<boolean>(false);
   const [isExecutiveReportOpen, setIsExecutiveReportOpen] = useState<boolean>(false);
+  const [isAiChartModalOpen, setIsAiChartModalOpen] = useState<boolean>(false);
+  const [chartTargetSectionId, setChartTargetSectionId] = useState<string | undefined>(undefined);
+  const [isTocOpen, setIsTocOpen] = useState<boolean>(true);
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState<boolean>(false);
+  const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // Sequential Full Report Audio Speech State
   const [isPlayingAudio, setIsPlayingAudio] = useState<boolean>(false);
@@ -710,6 +793,15 @@ export const ReportView: React.FC = () => {
       }
     }, 7000);
   };
+
+  // Close export menu on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) setIsExportMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
 
   useEffect(() => {
     audioSpeedRef.current = audioSpeed;
@@ -747,14 +839,8 @@ export const ReportView: React.FC = () => {
     } catch (e) {}
   };
 
-  // Top KPIs for Ribbon
-  const ribbonKpis = analysis?.kpis || [];
-  const primaryKpis = ribbonKpis.slice(0, 4);
-
-  // Top Insights for Executive Dossier
-  const topInsights = analysis?.insights?.slice(0, 4) || [];
-
   // Build complete sequential speech queue covering the entire report
+
   const buildFullReportSpeechQueue = (): AudioSpeechChunk[] => {
     if (!report) return [];
     const queue: AudioSpeechChunk[] = [];
@@ -783,16 +869,18 @@ export const ReportView: React.FC = () => {
     addChunks('report-header', 'Introduction & Overview', introText);
 
     // 2. Key Performance Indicators
-    if (primaryKpis.length > 0) {
+    const kpis = (analysis?.kpis || []).slice(0, 6);
+    if (kpis.length > 0) {
       const kpiText = `Key Performance Indicators. ` +
-        primaryKpis.map(k => `${k.display_name}: ${k.formatted_value}. Calculated from ${k.source_table || 'dataset'} ${k.source_column || ''}.`).join(' ');
+        kpis.map(k => `${k.display_name}: ${k.formatted_value}. Calculated from ${k.source_table || 'dataset'} ${k.source_column || ''}.`).join(' ');
       addChunks('report-kpis', 'Key Performance Indicators', kpiText);
     }
 
     // 3. Strategic Insights & Findings
-    if (topInsights.length > 0) {
+    const insights = (analysis?.insights || []).slice(0, 4);
+    if (insights.length > 0) {
       const insText = `Executive Key Strategic Insights. ` +
-        topInsights.map((ins, iIdx) => {
+        insights.map((ins, iIdx) => {
           const title = ins.title;
           const desc = ins.description;
           const rec = ins.recommendation ? `Action directive: ${ins.recommendation}.` : '';
@@ -1056,15 +1144,16 @@ export const ReportView: React.FC = () => {
     try {
       const updated = await api.regenerateReport(currentDataset.id);
       setReport(updated);
-      setSaveStatus('Report refreshed dynamically with dashboards');
+      setSaveStatus('Report regenerated');
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err) {
       console.error('Failed to regenerate report:', err);
-      alert('Failed to regenerate report. Check backend server logs.');
+      alert('Failed to regenerate report.');
     } finally {
       setIsRegenerating(false);
     }
   };
+
 
   const handleAiDeepen = async () => {
     if (!currentDataset) return;
@@ -1072,7 +1161,7 @@ export const ReportView: React.FC = () => {
     try {
       const updated = await api.aiDeepenReport(currentDataset.id);
       setReport(updated);
-      setSaveStatus('AI Deep-Dive briefing generated');
+      setSaveStatus('AI Deep-Dive added');
       setTimeout(() => setSaveStatus(null), 3000);
     } catch (err) {
       console.error('Failed to deepen report with AI:', err);
@@ -1082,14 +1171,21 @@ export const ReportView: React.FC = () => {
     }
   };
 
+
   if (!currentDataset || !report) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400 space-y-3">
-        <RefreshCw className="w-6 h-6 animate-spin text-brand-400" />
-        <p className="text-xs">Loading dynamic executive report & dashboards...</p>
+      <div className="flex-1 flex flex-col items-center justify-center p-12 text-slate-400 space-y-4">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-indigo-500/15 via-blue-500/15 to-cyan-500/15 border border-indigo-500/30 flex items-center justify-center">
+          <RefreshCw className="w-6 h-6 animate-spin text-indigo-400" style={{ animationDuration: '0.8s' }} />
+        </div>
+        <p className="text-xs font-medium">Loading executive report...</p>
       </div>
     );
   }
+
+  // Derived display data
+  const primaryKpis = (analysis?.kpis || []).slice(0, 6);
+  const topInsights = (analysis?.insights || []).slice(0, 4);
 
   const handleStartEdit = (sec: ReportSection) => {
     setEditingSectionId(sec.id);
@@ -1140,638 +1236,544 @@ export const ReportView: React.FC = () => {
     }
   };
 
-  const handleExportPdf = () => {
-    window.open(api.getReportPdfUrl(currentDataset.id), '_blank');
+  const handleExportPdf = () => { window.open(api.getReportPdfUrl(currentDataset.id), '_blank'); setIsExportMenuOpen(false); };
+  const handleExportExcel = () => { window.open(api.getReportExcelUrl(currentDataset.id), '_blank'); setIsExportMenuOpen(false); };
+  const handlePrint = () => { window.print(); setIsExportMenuOpen(false); };
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(window.location.href).then(() => { setCopiedLink(true); setTimeout(() => setCopiedLink(false), 2500); });
+    setIsExportMenuOpen(false);
   };
 
-  const handleExportExcel = () => {
-    window.open(api.getReportExcelUrl(currentDataset.id), '_blank');
-  };
+  // Report completeness score
+  const totalSections = report?.sections?.length || 0;
+  const totalCharts = report?.sections?.reduce((sum, s) => sum + (s.charts_included?.length || 0), 0) || 0;
+  const sectionsWithCharts = report?.sections?.filter(s => (s.charts_included?.length || 0) > 0).length || 0;
+  const completenessScore = Math.min(100, Math.round(
+    (totalSections > 0 ? 30 : 0) + (primaryKpis.length > 0 ? 25 : 0) +
+    (topInsights.length > 0 ? 20 : 0) + (totalCharts > 0 ? 15 : 0) + (sectionsWithCharts > 0 ? 10 : 0)
+  ));
 
   return (
-    <div className="flex-1 overflow-y-auto p-3.5 sm:p-5 md:p-6 lg:p-8 pb-24 md:pb-28 space-y-5 sm:space-y-6 bg-transparent max-w-7xl mx-auto w-full">
-      {/* Top Action Bar */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-slate-800/80 pb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-xl font-extrabold text-white tracking-tight flex items-center gap-2">
-              <FileText className="w-5 h-5 text-brand-400" />
-              <span>Executive Briefing & Report</span>
-            </h2>
-            <span className="px-2.5 py-0.5 text-[10px] font-bold rounded-full bg-brand-500/20 text-brand-300 border border-brand-500/30 uppercase tracking-wider">
-              {currentDataset.detected_domain || 'Dynamic Intelligence'}
-            </span>
-          </div>
-          <p className="text-xs text-slate-400 mt-1">
-            Data-adaptive autonomous executive reporting. Integrated visual dashboards, precision tables, and strategic AI intelligence.
-          </p>
-        </div>
-
-        {/* Action Controls & View Switcher */}
-        <div className="flex flex-wrap items-center gap-2.5">
-          {saveStatus && (
-            <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 mr-1.5 animate-fadeIn">
-              <Check className="w-3.5 h-3.5" />
-              {saveStatus}
-            </span>
-          )}
-
-          {/* View Mode Toggle */}
-          <div className="tabs-3d-rail">
-            <button
-              onClick={() => setViewMode('all')}
-              className={`tab-3d-item ${
-                viewMode === 'all' ? 'tab-3d-item-active' : ''
-              }`}
-            >
-              Unified View
-            </button>
-            <button
-              onClick={() => setViewMode('dashboards')}
-              className={`tab-3d-item ${
-                viewMode === 'dashboards' ? 'tab-3d-item-active' : ''
-              }`}
-            >
-              Dashboards
-            </button>
-            <button
-              onClick={() => setViewMode('tables')}
-              className={`tab-3d-item ${
-                viewMode === 'tables' ? 'tab-3d-item-active' : ''
-              }`}
-            >
-              Data Tables
-            </button>
-          </div>
-
-          {/* AI Deepen Button */}
-          <button
-            onClick={handleAiDeepen}
-            disabled={isDeepening}
-            className="btn-3d-cyan px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
-            title="Generate AI-powered predictive scenarios and strategic deep-dive"
-          >
-            <Zap className={`w-3.5 h-3.5 text-blue-400 ${isDeepening ? 'animate-bounce' : ''}`} />
-            <span>{isDeepening ? 'Synthesizing...' : 'AI Deepen'}</span>
-          </button>
-
-          {/* Regenerate Button */}
-          <button
-            onClick={handleRegenerateReport}
-            disabled={isRegenerating}
-            className="btn-3d-secondary px-3 py-2 rounded-xl text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50"
-            title="Re-analyze data and rebuild dynamic sections and dashboards"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 text-brand-400 ${isRegenerating ? 'animate-spin' : ''}`} />
-            <span>{isRegenerating ? 'Re-analyzing...' : 'Refresh'}</span>
-          </button>
-
-          {/* Add Section Button */}
-          <button
-            onClick={() => setIsAddingSection(true)}
-            className="btn-3d-secondary px-3 py-2 rounded-xl text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5"
-          >
-            <Plus className="w-3.5 h-3.5 text-brand-400" />
-            <span>Add Section</span>
-          </button>
-
-          {/* Audio Reading (Listen) Button */}
-          <button
-            onClick={toggleAudioBriefing}
-            className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
-              isPlayingAudio
-                ? isPausedAudio
-                  ? 'btn-3d-secondary border-amber-500/50 text-amber-300 hover:text-amber-200'
-                  : 'btn-3d-cyan shadow-[0_0_15px_rgba(6,182,212,0.4)] animate-pulse'
-                : 'btn-3d-secondary text-slate-200 hover:text-white'
-            }`}
-            title={
-              isPlayingAudio
-                ? isPausedAudio
-                  ? 'Resume reading report aloud'
-                  : 'Pause audio reading'
-                : 'Read entire report aloud clearly from beginning to end'
-            }
-          >
-            {isPlayingAudio ? (
-              isPausedAudio ? (
-                <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-              ) : (
-                <Pause className="w-3.5 h-3.5 text-cyan-200 fill-cyan-200" />
-              )
-            ) : (
-              <Volume2 className="w-3.5 h-3.5 text-blue-400" />
-            )}
-            <span>
-              {isPlayingAudio
-                ? isPausedAudio
-                  ? 'Resume Audio'
-                  : 'Pause Audio'
-                : 'Listen'}
-            </span>
-          </button>
-
-          {/* Quick Stop Button when Audio is Playing */}
-          {isPlayingAudio && (
-            <button
-              onClick={stopAudioBriefing}
-              className="p-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 text-xs font-semibold transition"
-              title="Stop reading aloud"
-            >
-              <VolumeX className="w-3.5 h-3.5" />
-            </button>
-          )}
-
-          {/* Presentation Deck Button */}
-          <button
-            onClick={() => setIsDeckOpen(true)}
-            className="btn-3d-primary px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5"
-            title="Launch Fullscreen C-Suite Presentation Deck"
-          >
-            <Presentation className="w-3.5 h-3.5 text-blue-300" />
-            <span>Present</span>
-          </button>
-
-          {/* Executive Dashboard Template Report Button */}
-          <button
-            onClick={() => setIsExecutiveReportOpen(true)}
-            className="btn-3d-secondary px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-purple-500/30 text-purple-200 hover:text-white shadow-md shadow-purple-500/10"
-            title="Open Executive Dashboard Template Report (Lollipop Growth, Driver Cards, Milestones, Audit Gauges)"
-          >
-            <LayoutDashboard className="w-3.5 h-3.5 text-purple-300" />
-            <span>Executive Template</span>
-          </button>
-
-          {/* Export Excel */}
-          <button
-            onClick={handleExportExcel}
-            className="btn-3d-emerald px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Excel</span>
-          </button>
-
-          {/* Export PDF */}
-          <button
-            onClick={handleExportPdf}
-            className="btn-3d-danger px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5"
-          >
-            <Download className="w-3.5 h-3.5" />
-            <span>Export PDF</span>
-          </button>
-        </div>
-      </div>
-
-      {/* Main Document Canvas Sheet */}
-      <div className="glass-3d-card relative overflow-hidden max-w-5xl mx-auto rounded-2xl sm:rounded-3xl p-4 sm:p-6 lg:p-10 shadow-[0_30px_70px_-15px_rgba(0,0,0,0.85),0_0_50px_rgba(14,165,233,0.12)] space-y-6 sm:space-y-8 border border-slate-700/80">
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-cyan-400 to-transparent pointer-events-none" />
-        
-        {/* Document Header with Metadata Alignment */}
-        <div id="report-header" className="border-b border-slate-800/80 pb-6 space-y-4">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs uppercase tracking-wider font-extrabold text-brand-400">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>DATOVA AI • EXECUTIVE BUSINESS REPORT & DASHBOARD</span>
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* ── Sticky Top Action Bar ────────────────────────────── */}
+      <div className="shrink-0 px-4 sm:px-6 lg:px-8 py-3 border-b border-slate-800/80 bg-[#070F22]/95 backdrop-blur-md relative z-40">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="dept-section-icon dept-section-icon-indigo" style={{ width: '2.25rem', height: '2.25rem', borderRadius: '0.75rem' }}>
+              <FileText className="w-4 h-4 text-indigo-300" />
             </div>
-            <span className="text-[11px] font-mono text-slate-400">
-              {new Date(report.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
-            </span>
-          </div>
-
-          <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight leading-snug">
-            {report.title}
-          </h1>
-
-          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
-            <span className="font-medium text-slate-300">{report.subtitle}</span>
-            <span className="text-slate-600">•</span>
-            <span>Health Score: <strong className="text-emerald-400">{currentDataset.data_health_score}/100</strong></span>
-            <span className="text-slate-600">•</span>
-            <span>{currentDataset.row_count.toLocaleString()} Records Analyzed</span>
-            <span className="text-slate-600">•</span>
-            <span className="text-cyan-300 flex items-center gap-1 font-medium">
-              <Clock className="w-3 h-3" />
-              <span>Full Voice Briefing Available</span>
-            </span>
-          </div>
-
-          {/* Quick Explanation Banner */}
-          <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/25 flex items-start gap-2.5 text-xs text-slate-300">
-            <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-            <div>
-              <span className="font-semibold text-white mr-1.5">Simple & Organized Format:</span>
-              <span>
-                This report summarizes your data into clear sections with simple explanations, key metric highlights, visual charts, and practical action items. Click <strong>Listen</strong> above to hear the entire report read aloud from start to finish.
-              </span>
-            </div>
-          </div>
-
-          {/* Table of Contents Quick Jump Navigator */}
-          <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-2.5 sm:p-3 space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                <Compass className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Report Sections & Quick Navigation</span>
-              </span>
-              <span className="text-[10px] text-slate-500">
-                {report.sections?.length || 0} sections • Click to jump
-              </span>
-            </div>
-            <div className="flex flex-wrap gap-1.5">
-              <a
-                href="#report-header"
-                onClick={(e) => {
-                  e.preventDefault();
-                  document.getElementById('report-header')?.scrollIntoView({ behavior: 'smooth' });
-                }}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
-                  activeSpeakingSectionId === 'report-header'
-                    ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
-                    : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
-                }`}
-              >
-                Overview
-              </a>
-              {primaryKpis.length > 0 && (
-                <a
-                  href="#report-kpis"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('report-kpis')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
-                    activeSpeakingSectionId === 'report-kpis'
-                      ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
-                      : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
-                  }`}
-                >
-                  Key Metrics
-                </a>
-              )}
-              {topInsights.length > 0 && (
-                <a
-                  href="#report-insights"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById('report-insights')?.scrollIntoView({ behavior: 'smooth' });
-                  }}
-                  className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
-                    activeSpeakingSectionId === 'report-insights'
-                      ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
-                      : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
-                  }`}
-                >
-                  Key Insights
-                </a>
-              )}
-              {report.sections?.map((sec, idx) => {
-                const isCurrentSpeaking = activeSpeakingSectionId === `section-${sec.id}`;
-                return (
-                  <a
-                    key={sec.id}
-                    href={`#section-${sec.id}`}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      document.getElementById(`section-${sec.id}`)?.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
-                      isCurrentSpeaking
-                        ? 'bg-cyan-500/25 text-cyan-200 border border-cyan-500/50 animate-pulse'
-                        : 'bg-slate-800/60 text-slate-300 hover:bg-slate-700/80 hover:text-white border border-slate-700/40'
-                    }`}
-                  >
-                    {idx + 1}. {sec.title.split('•')[0].split(':')[0].trim()}
-                  </a>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* TOP EXECUTIVE KPI RIBBON WITH PROPER ALIGNMENT */}
-          {primaryKpis.length > 0 && (
-            <div id="report-kpis" className="pt-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-3.5">
-                {primaryKpis.map((kpi, kIdx) => (
-                  <div
-                    key={kIdx}
-                    className="card-3d-interactive glass-3d-card relative overflow-hidden p-3.5 rounded-xl border border-slate-700/60 hover:border-cyan-500/50 transition-all duration-300 space-y-1 shadow-md group"
-                  >
-                    <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent pointer-events-none" />
-                    <div className="flex items-center justify-between gap-1 text-[11px] text-slate-400 font-medium truncate">
-                      <span className="truncate">{kpi.display_name}</span>
-                      <span className="text-[9px] font-mono font-bold uppercase px-1 rounded bg-slate-800 text-brand-300">
-                        {kpi.calculation_type || 'KPI'}
-                      </span>
-                    </div>
-                    <div className="text-xl font-black text-white font-mono tracking-tight">
-                      {kpi.formatted_value}
-                    </div>
-                    {kpi.source_column && (
-                      <p className="text-[10px] text-slate-500 truncate font-mono">
-                        Base: {kpi.source_table || 'Primary'}.{kpi.source_column}
-                      </p>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* EXECUTIVE KEY INSIGHTS DOSSIER (High-Impact Highlight Cards) */}
-        {topInsights.length > 0 && (
-          <div id="report-insights" className="glass-3d-card relative overflow-hidden space-y-3.5 p-5 rounded-2xl border border-cyan-500/40 shadow-2xl">
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent pointer-events-none" />
-            <div className="flex items-center justify-between border-b border-slate-800/80 pb-2.5">
-              <div className="flex items-center gap-2">
-                <Lightbulb className="w-4 h-4 text-amber-400" />
-                <h4 className="text-xs font-black uppercase tracking-wider text-white">
-                  Executive Key Strategic Insights & Empirical Findings
-                </h4>
-              </div>
-              <span className="text-[10px] font-mono text-brand-300 bg-brand-500/10 border border-brand-500/20 px-2 py-0.5 rounded-full">
-                AI Autonomous Synthesis
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-              {topInsights.map((ins, iIdx) => {
-                const isHigh = ins.severity === 'high' || ins.severity === 'critical';
-                const tag = (ins.statement_type || 'CALCULATION').toUpperCase();
-                return (
-                  <div
-                    key={iIdx}
-                    className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-brand-500/30 transition space-y-2 flex flex-col justify-between"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-2 pb-1">
-                        <span className="text-[9px] font-bold font-mono tracking-wider px-1.5 py-0.5 rounded uppercase border bg-brand-500/15 text-brand-300 border-brand-500/30">
-                          [{tag}]
-                        </span>
-                        <span
-                          className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                            isHigh
-                              ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30'
-                              : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'
-                          }`}
-                        >
-                          {ins.severity.toUpperCase()} IMPACT
-                        </span>
-                      </div>
-                      <h5 className="text-xs font-bold text-white tracking-tight leading-snug">
-                        {ins.title}
-                      </h5>
-                      <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
-                        {ins.description}
-                      </p>
-                    </div>
-
-                    {ins.recommendation && (
-                      <div className="pt-2 border-t border-slate-800/60 text-[10px] text-emerald-400/95 font-medium flex items-start gap-1.5">
-                        <ChevronRight className="w-3 h-3 text-emerald-400 flex-shrink-0 mt-0.5" />
-                        <span><strong>Action Directive:</strong> {ins.recommendation}</span>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Add Section Modal / Panel */}
-        {isAddingSection && (
-          <div className="p-5 rounded-xl border border-brand-500/40 bg-slate-900/95 space-y-3.5 shadow-xl animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h4 className="font-bold text-xs text-white flex items-center gap-1.5">
-                <Plus className="w-4 h-4 text-brand-400" />
-                <span>Create Custom Analytical Section</span>
-              </h4>
-              <button
-                onClick={() => setIsAddingSection(false)}
-                className="text-slate-400 hover:text-white text-xs"
-              >
-                ✕
-              </button>
-            </div>
-            <input
-              type="text"
-              placeholder="Section Title..."
-              value={newTitle}
-              onChange={(e) => setNewTitle(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500"
-            />
-            <textarea
-              placeholder="Detailed analytical findings, strategic observations, or notes..."
-              rows={4}
-              value={newContent}
-              onChange={(e) => setNewContent(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-brand-500 font-sans"
-            />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                onClick={() => setIsAddingSection(false)}
-                className="px-3 py-1.5 text-xs text-slate-400 hover:text-white transition"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateCustomSection}
-                className="px-4 py-1.5 bg-brand-600 hover:bg-brand-500 text-white rounded-lg text-xs font-semibold transition"
-              >
-                Save Section
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Dynamic Sections Stack */}
-        <div className="space-y-8">
-          {report.sections?.map((sec, sIdx) => {
-            const isEditing = editingSectionId === sec.id;
-            const secIcon = getSectionIcon(sec.section_type);
-            const badgeText = getSectionBadge(sec.section_type);
-            const indexNumber = String(sIdx + 1).padStart(2, '0');
-            const charts = sec.charts_included || [];
-            const tables = sec.tables_included || [];
-
-            // Filters based on ViewMode
-            const showCharts = viewMode === 'all' || viewMode === 'dashboards';
-            const showTables = viewMode === 'all' || viewMode === 'tables';
-
-            // Skip rendering empty sections in specialized view modes
-            if (viewMode === 'dashboards' && charts.length === 0 && sec.section_type !== 'executive_summary') {
-              return null;
-            }
-            if (viewMode === 'tables' && tables.length === 0 && sec.section_type !== 'dataset_overview') {
-              return null;
-            }
-
-            const isSpeakingThisSection = activeSpeakingSectionId === `section-${sec.id}`;
-
-            return (
-              <div
-                key={sec.id}
-                id={`section-${sec.id}`}
-                className={`card-3d-interactive glass-3d-card relative overflow-hidden p-6 rounded-2xl border transition-all duration-300 shadow-xl space-y-5 group ${
-                  isSpeakingThisSection
-                    ? 'border-cyan-400/80 ring-2 ring-cyan-400 shadow-[0_0_35px_rgba(6,182,212,0.25)] bg-slate-900/90'
-                    : 'border-slate-700/60 hover:border-cyan-500/40'
-                }`}
-              >
-                <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent pointer-events-none" />
-                {isEditing ? (
-                  /* Inline Edit Mode */
-                  <div className="space-y-3 p-4 rounded-xl bg-slate-950 border border-brand-500/40">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-800">
-                      <span className="text-xs font-bold text-brand-400">Editing Section {indexNumber}</span>
-                    </div>
-                    <input
-                      type="text"
-                      value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-1.5 text-sm font-bold text-white focus:outline-none focus:border-brand-500"
-                    />
-                    <textarea
-                      rows={6}
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      className="w-full bg-slate-900 border border-slate-700 rounded px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-brand-500 leading-relaxed font-sans"
-                    />
-                    <div className="flex items-center justify-end gap-2 pt-1">
-                      <button
-                        onClick={() => setEditingSectionId(null)}
-                        className="px-3 py-1.5 text-xs text-slate-400 hover:text-white"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={() => handleSaveSection(sec.id)}
-                        className="px-3.5 py-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow"
-                      >
-                        <Save className="w-3.5 h-3.5" />
-                        <span>Save Changes</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* Standard View Mode */
-                  <>
-                    {/* Section Header with Alignment & Badges */}
-                    <div className="flex items-center justify-between gap-4 border-b border-slate-800/60 pb-3">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-800/60 px-1.5 py-0.5 rounded">
-                          {indexNumber}
-                        </span>
-                        <div className="p-1.5 rounded-lg bg-slate-800/80 border border-slate-700/60 flex-shrink-0">
-                          {secIcon}
-                        </div>
-                        <h3 className="font-extrabold text-sm md:text-base text-white tracking-tight truncate">
-                          {sec.title}
-                        </h3>
-                        <span className="hidden sm:inline-block text-[10px] font-semibold text-slate-400 bg-slate-800/40 border border-slate-700/50 px-2 py-0.5 rounded-full flex-shrink-0">
-                          {badgeText}
-                        </span>
-                        {isSpeakingThisSection && (
-                          <span className="text-[9px] font-bold font-mono tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse flex items-center gap-1">
-                            <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" />
-                            Reading Aloud
-                          </span>
-                        )}
-                      </div>
-
-                      {/* Edit & Delete Action Hover Buttons */}
-                      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
-                        <button
-                          onClick={() => handleStartEdit(sec)}
-                          className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition"
-                          title="Edit section"
-                        >
-                          <Edit3 className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSection(sec.id)}
-                          className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-red-400 transition"
-                          title="Delete section"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Short Plain-English Explanation Callout */}
-                    <div className="p-3 rounded-xl bg-slate-900/60 border border-slate-800/80 flex items-start gap-2.5 text-xs text-slate-300">
-                      <Info className="w-4 h-4 text-cyan-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-white mr-1.5">What this section shows:</span>
-                        <span className="text-slate-300">{getSectionShortExplanation(sec.section_type, sec.title)}</span>
-                      </div>
-                    </div>
-
-                    {/* Formatted Content Narrative */}
-                    <FormattedContent content={sec.content} />
-
-                    {/* SECTION DASHBOARD CHARTS WITH PROPER ALIGNMENT (Not Only Tables!) */}
-                    {showCharts && charts.length > 0 && (
-                      <div className="space-y-3 pt-2">
-                        <div className="flex items-center justify-between">
-                          <h5 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
-                            <LayoutDashboard className="w-3.5 h-3.5 text-brand-400" />
-                            <span>Visual Analytical Dashboard</span>
-                          </h5>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {charts.length} {charts.length === 1 ? 'Visualization' : 'Visualizations'}
-                          </span>
-                        </div>
-
-                        <div
-                          className={`grid gap-5 ${
-                            charts.length > 1 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'
-                          }`}
-                        >
-                          {charts.map((ch, chIdx) => (
-                            <ReportDashboardChartCard key={chIdx} chart={ch} />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* EMBEDDED STRUCTURED TABLES WITH PRECISION ALIGNMENT */}
-                    {showTables && tables.length > 0 && (
-                      <div className="space-y-2 pt-1">
-                        {tables.map((tbl, tIdx) => (
-                          <ReportTableRenderer key={tIdx} table={tbl} />
-                        ))}
-                      </div>
-                    )}
-                  </>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="view-header-title text-sm sm:text-base font-extrabold text-white tracking-tight">Executive Report</h2>
+                <span className="px-2 py-0.5 text-[9px] font-bold rounded-md badge-neon-indigo uppercase tracking-wider shrink-0 flex items-center gap-1">
+                  <span className="status-dot-live" />
+                  {currentDataset.detected_domain || 'AI Intelligence'}
+                </span>
+                {saveStatus && (
+                  <span className="text-xs text-emerald-400 font-semibold flex items-center gap-1 animate-fadeIn">
+                    <Check className="w-3.5 h-3.5" />{saveStatus}
+                  </span>
                 )}
               </div>
-            );
-          })}
-        </div>
+              <p className="text-[11px] text-slate-400 mt-0.5 hidden sm:block">
+                {currentDataset.row_count.toLocaleString()} records • {totalSections} sections • {totalCharts} charts
+              </p>
+            </div>
+          </div>
 
-        {/* Document Footer Notice */}
-        <div id="report-footer" className="pt-8 border-t border-slate-800 text-center text-xs text-slate-500 space-y-1">
-          <p className="font-semibold text-slate-400">
-            DATOVA Autonomous Intelligence Engine • Dynamic Multi-Sheet Analytics
-          </p>
-          <p>
-            Generated automatically from uploaded datasets with integrated visual dashboards, precision tables, and strategic AI intelligence.
-          </p>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* View Mode */}
+            <div className="tabs-3d-rail">
+              {(['all', 'dashboards', 'tables'] as const).map((mode) => (
+                <button key={mode} onClick={() => setViewMode(mode)} className={`tab-3d-item text-xs ${viewMode === mode ? 'tab-3d-item-active' : ''}`}>
+                  {mode === 'all' ? 'All' : mode === 'dashboards' ? 'Charts' : 'Tables'}
+                </button>
+              ))}
+            </div>
+
+            {/* TOC Sidebar Toggle */}
+            <button onClick={() => setIsTocOpen(o => !o)} title={isTocOpen ? 'Hide outline' : 'Show outline'}
+              className={`p-2 rounded-xl transition border ${isTocOpen ? 'bg-indigo-500/20 border-indigo-500/40 text-indigo-300' : 'btn-3d-secondary border-slate-700/60 text-slate-400 hover:text-white'}`}>
+              <BookOpen className="w-3.5 h-3.5" />
+            </button>
+
+            {/* Generate Business Charts (AI) */}
+            <button
+              onClick={() => {
+                setChartTargetSectionId(undefined);
+                setIsAiChartModalOpen(true);
+              }}
+              className="btn-3d-cyan px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.3)] hover:shadow-[0_0_22px_rgba(6,182,212,0.5)] border border-cyan-400/40 text-white shrink-0"
+              title="Generate domain-grounded business charts, Pareto driver analyses, and quantitative takeaways with AI"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-cyan-200 animate-pulse" />
+              <span>AI Business Charts</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/20 text-cyan-100 uppercase tracking-wider font-extrabold hidden md:inline">
+                NEW
+              </span>
+            </button>
+
+            {/* AI Deepen */}
+            <button onClick={handleAiDeepen} disabled={isDeepening} className="btn-3d-secondary px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50">
+              <Zap className={`w-3.5 h-3.5 text-blue-300 ${isDeepening ? 'animate-bounce' : ''}`} />
+              <span className="hidden sm:inline">{isDeepening ? 'Synthesizing...' : 'AI Deepen'}</span>
+            </button>
+
+            {/* Refresh */}
+            <button onClick={handleRegenerateReport} disabled={isRegenerating} className="btn-3d-secondary px-3 py-2 rounded-xl text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5 disabled:opacity-50">
+              <RefreshCw className={`w-3.5 h-3.5 text-indigo-400 ${isRegenerating ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">{isRegenerating ? 'Re-analyzing...' : 'Refresh'}</span>
+            </button>
+
+            {/* Add Section */}
+            <button onClick={() => setIsAddingSection(true)} className="btn-3d-secondary px-3 py-2 rounded-xl text-slate-200 hover:text-white text-xs font-semibold flex items-center gap-1.5">
+              <Plus className="w-3.5 h-3.5 text-indigo-400" />
+              <span className="hidden sm:inline">Add Section</span>
+            </button>
+
+            {/* Listen / Audio */}
+            <button onClick={toggleAudioBriefing}
+              className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition ${
+                isPlayingAudio ? (isPausedAudio ? 'btn-3d-secondary border-amber-500/50 text-amber-300' : 'btn-3d-cyan animate-pulse') : 'btn-3d-secondary text-slate-200 hover:text-white'
+              }`}>
+              {isPlayingAudio ? (isPausedAudio ? <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" /> : <Pause className="w-3.5 h-3.5 text-cyan-200 fill-cyan-200" />) : <Volume2 className="w-3.5 h-3.5 text-blue-400" />}
+              <span className="hidden sm:inline">{isPlayingAudio ? (isPausedAudio ? 'Resume' : 'Pause') : 'Listen'}</span>
+            </button>
+            {isPlayingAudio && (
+              <button onClick={stopAudioBriefing} className="p-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/40 transition" title="Stop">
+                <VolumeX className="w-3.5 h-3.5" />
+              </button>
+            )}
+
+            {/* Executive Dashboard (Neon Theme + AI Key) */}
+            <button
+              onClick={() => setIsExecutiveReportOpen(true)}
+              className="px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 bg-gradient-to-r from-cyan-500 via-indigo-600 to-purple-600 hover:from-cyan-400 hover:via-indigo-500 hover:to-purple-500 text-white shadow-[0_0_18px_rgba(6,182,212,0.4)] hover:shadow-[0_0_26px_rgba(6,182,212,0.6)] border border-cyan-400/40 transition-all transform hover:scale-[1.02] active:scale-95 shrink-0"
+              title="Open Executive Dashboard with Neon Quantum Theme & AI Enhancement"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-cyan-200 animate-pulse" />
+              <span>Executive Dashboard</span>
+              <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/20 text-cyan-100 uppercase tracking-wider font-extrabold hidden md:inline">
+                NEON
+              </span>
+            </button>
+
+            {/* Present */}
+            <button onClick={() => setIsDeckOpen(true)} className="btn-3d-primary px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5">
+              <Presentation className="w-3.5 h-3.5 text-blue-200" />
+              <span className="hidden sm:inline">Present</span>
+            </button>
+
+            {/* Export Dropdown */}
+            <div className="relative z-50" ref={exportMenuRef}>
+              <button onClick={() => setIsExportMenuOpen(o => !o)}
+                className="btn-3d-secondary px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 text-slate-200 hover:text-white">
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="hidden sm:inline">Export</span>
+                <ChevronDown className="w-3 h-3 text-slate-400" />
+              </button>
+              {isExportMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-56 bg-[#080E21] border border-cyan-500/40 rounded-xl shadow-[0_20px_60px_rgba(0,0,0,0.95),0_0_25px_rgba(6,182,212,0.25)] overflow-hidden z-[100] animate-fadeIn">
+                  <div className="p-1.5 space-y-0.5">
+                    <button onClick={handleExportPdf} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-200 hover:text-white hover:bg-rose-500/20 rounded-lg transition font-medium">
+                      <Download className="w-3.5 h-3.5 text-rose-400" />Export as PDF
+                    </button>
+                    <button onClick={handleExportExcel} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-200 hover:text-white hover:bg-emerald-500/20 rounded-lg transition font-medium">
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-400" />Export as Excel
+                    </button>
+                    <button onClick={handlePrint} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-200 hover:text-white hover:bg-indigo-500/20 rounded-lg transition font-medium">
+                      <Printer className="w-3.5 h-3.5 text-indigo-400" />Print Report
+                    </button>
+                    <div className="h-px bg-slate-700/60 my-1" />
+                    <button onClick={() => { setIsExecutiveReportOpen(true); setIsExportMenuOpen(false); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-200 hover:text-white hover:bg-purple-500/20 rounded-lg transition font-medium">
+                      <LayoutDashboard className="w-3.5 h-3.5 text-purple-400" />Executive Template
+                    </button>
+                    <button onClick={handleCopyLink} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-xs text-slate-200 hover:text-white hover:bg-slate-700/60 rounded-lg transition font-medium">
+                      {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                      {copiedLink ? 'Link Copied!' : 'Copy Link'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Floating Audio Player Control Dock */}
+      {/* â”€â”€ Two-Panel Body: TOC + Canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+      <div className="flex-1 flex overflow-hidden">
+
+        {/* Sticky TOC Sidebar */}
+        {isTocOpen && (
+          <aside className="hidden lg:flex flex-col w-56 xl:w-60 shrink-0 border-r border-slate-800/80 bg-[#060D1E]/80 overflow-y-auto py-4 px-3 space-y-1">
+            <div className="px-2 mb-1">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <Compass className="w-3 h-3 text-indigo-400" /> Contents
+              </span>
+            </div>
+
+            {/* Completeness Score */}
+            <div className="px-2 mb-2 p-3 rounded-xl bg-indigo-950/40 border border-indigo-500/20 space-y-1.5">
+              <div className="flex items-center justify-between text-[10px]">
+                <span className="text-slate-400 font-medium">Completeness</span>
+                <span className="font-bold text-indigo-300 font-mono">{completenessScore}%</span>
+              </div>
+              <div className="w-full bg-slate-800 rounded-full h-1.5 overflow-hidden">
+                <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-400 rounded-full transition-all duration-500" style={{ width: `${completenessScore}%` }} />
+              </div>
+            </div>
+
+            {/* Executive Dashboard Launcher Card */}
+            <div className="px-1 mb-2">
+              <button
+                onClick={() => setIsExecutiveReportOpen(true)}
+                className="w-full text-left p-2.5 rounded-xl bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-purple-500/15 border border-cyan-500/30 hover:border-cyan-400/60 transition group shadow-sm hover:shadow-[0_0_15px_rgba(6,182,212,0.25)]"
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-black uppercase text-cyan-300 flex items-center gap-1">
+                    <LayoutDashboard className="w-3 h-3 text-cyan-400" />
+                    Dashboard
+                  </span>
+                  <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-cyan-400/20 text-cyan-200 font-bold">NEON</span>
+                </div>
+                <div className="text-xs font-bold text-white group-hover:text-cyan-200 transition">
+                  Executive Dashboard
+                </div>
+                <p className="text-[10px] text-slate-400 mt-0.5 leading-tight">
+                  Neon visual cards, charts & AI synthesis
+                </p>
+              </button>
+            </div>
+
+            {/* TOC nav items */}
+            {([
+              { id: 'report-header', label: 'Overview', icon: <Eye className="w-3 h-3" /> },
+              ...(primaryKpis.length > 0 ? [{ id: 'report-kpis', label: 'Key Metrics', icon: <TrendingUp className="w-3 h-3" /> }] : []),
+              ...(topInsights.length > 0 ? [{ id: 'report-insights', label: 'Key Insights', icon: <Lightbulb className="w-3 h-3" /> }] : []),
+              ...(report.sections?.map((sec, idx) => ({
+                id: `section-${sec.id}`,
+                label: sec.title.split('â€¢')[0].split(':')[0].trim(),
+                icon: <span className="text-[9px] font-mono font-bold">{String(idx + 1).padStart(2, '0')}</span>,
+              })) || []),
+            ] as Array<{ id: string; label: string; icon: React.ReactNode }>).map((item) => {
+              const isActive = activeSpeakingSectionId === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className={`w-full text-left px-2.5 py-2 rounded-lg text-[11px] font-medium flex items-center gap-2 transition group ${
+                    isActive ? 'bg-cyan-500/20 text-cyan-200 border border-cyan-500/35 animate-pulse' : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span className={`shrink-0 ${isActive ? 'text-cyan-400' : 'text-slate-500 group-hover:text-slate-300'}`}>{item.icon}</span>
+                  <span className="truncate">{item.label}</span>
+                  {isActive && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse shrink-0 ml-auto" />}
+                </button>
+              );
+            })}
+          </aside>
+        )}
+
+        {/* â”€â”€ Scrollable Report Canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pb-28">
+          <div className="max-w-4xl mx-auto space-y-6">
+
+            {/* â”€â”€ Premium Cover Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <div id="report-header" className="relative overflow-hidden rounded-2xl border border-indigo-500/30 shadow-2xl">
+              <div className="absolute inset-0 bg-gradient-to-br from-indigo-950/80 via-slate-900/90 to-purple-950/50 pointer-events-none" />
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-400 to-transparent" />
+              <div className="relative p-6 sm:p-8 space-y-5">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-extrabold text-indigo-400">
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>DATOVA AI Â· EXECUTIVE BUSINESS REPORT</span>
+                  </div>
+                  <span className="text-[11px] font-mono text-slate-500">
+                    {new Date(report.created_at).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+                <div>
+                  <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight leading-tight">{report.title}</h1>
+                  {report.subtitle && <p className="text-sm text-slate-300 mt-1.5 font-medium">{report.subtitle}</p>}
+                </div>
+                {/* Stats Grid */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Records', value: currentDataset.row_count.toLocaleString(), icon: <Database className="w-3.5 h-3.5 text-cyan-400" />, color: 'border-cyan-500/30 bg-cyan-500/10' },
+                    { label: 'Health Score', value: `${currentDataset.data_health_score}/100`, icon: <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />, color: 'border-emerald-500/30 bg-emerald-500/10' },
+                    { label: 'Sections', value: totalSections, icon: <Layers className="w-3.5 h-3.5 text-indigo-400" />, color: 'border-indigo-500/30 bg-indigo-500/10' },
+                    { label: 'Visualizations', value: totalCharts, icon: <BarChart3 className="w-3.5 h-3.5 text-purple-400" />, color: 'border-purple-500/30 bg-purple-500/10' },
+                  ].map((stat, i) => (
+                    <div key={i} className={`p-3 rounded-xl border ${stat.color} flex items-center gap-2.5`}>
+                      <span className="shrink-0">{stat.icon}</span>
+                      <div>
+                        <div className="text-base font-black text-white font-mono">{stat.value}</div>
+                        <div className="text-[10px] text-slate-400 font-medium">{stat.label}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {report.summary && (
+                  <div className="p-4 rounded-xl bg-slate-900/60 border border-slate-700/60 text-xs text-slate-300 leading-relaxed">{report.summary}</div>
+                )}
+                <div className="flex items-start gap-2.5 text-xs text-slate-300 p-3.5 rounded-xl bg-cyan-950/25 border border-cyan-500/20">
+                  <Info className="w-4 h-4 text-cyan-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold text-white mr-1">Quick Guide:</span>
+                    Use the left sidebar to jump between sections. Click <strong>Listen</strong> to hear the full report aloud. Use <strong>Export</strong> to download as PDF or Excel.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* â”€â”€ KPI Ribbon â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {primaryKpis.length > 0 && (
+              <div id="report-kpis" className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="w-4 h-4 text-sky-400" />
+                  <h3 className="text-sm font-bold text-white tracking-tight">Key Performance Indicators</h3>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 border border-sky-500/25 font-mono">{primaryKpis.length} metrics</span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {primaryKpis.map((kpi, kIdx) => {
+                    const isPositive = (kpi as any).trend === 'up' || (kpi as any).trend === 'positive';
+                    const isNegative = (kpi as any).trend === 'down' || (kpi as any).trend === 'negative';
+                    return (
+                      <div key={kIdx} className="card-3d-interactive relative overflow-hidden p-4 rounded-xl border border-slate-700/60 hover:border-sky-500/40 transition-all duration-300 bg-slate-900/40 space-y-2 shadow-md group">
+                        <div className="absolute top-0 left-0 right-0 h-[1.5px] bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
+                        <div className="flex items-start justify-between gap-1">
+                          <span className="text-[10px] text-slate-400 font-medium leading-tight line-clamp-2">{kpi.display_name}</span>
+                          <span className="text-[9px] font-mono font-bold uppercase px-1.5 py-0.5 rounded bg-slate-800/80 text-sky-300 border border-sky-500/20 shrink-0">{kpi.calculation_type || 'KPI'}</span>
+                        </div>
+                        <div className="text-xl font-black text-white font-mono tracking-tight">{kpi.formatted_value}</div>
+                        <div className="flex items-center justify-between">
+                          {kpi.source_column && <p className="text-[10px] text-slate-500 truncate font-mono">{kpi.source_table || 'Primary'}.{kpi.source_column}</p>}
+                          {(isPositive || isNegative) && (
+                            <span className={`flex items-center gap-0.5 text-[10px] font-bold ml-auto shrink-0 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {isPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+                              {(kpi as any).trend_label || (isPositive ? 'â†‘' : 'â†“')}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* â”€â”€ Executive Insights Dossier â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {topInsights.length > 0 && (
+              <div id="report-insights" className="relative overflow-hidden rounded-2xl border border-amber-500/30 shadow-xl bg-slate-900/50">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
+                <div className="p-5 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4 text-amber-400" />
+                      <h3 className="text-sm font-bold text-white">Strategic Insights & Key Findings</h3>
+                    </div>
+                    <span className="text-[10px] font-mono text-indigo-300 bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 rounded-full">AI Synthesized</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {topInsights.map((ins, iIdx) => {
+                      const isHigh = ins.severity === 'high' || ins.severity === 'critical';
+                      const tag = ((ins as any).statement_type || 'FACT').toUpperCase();
+                      return (
+                        <div key={iIdx} className="p-4 rounded-xl bg-slate-950/60 border border-slate-800/80 hover:border-amber-500/20 transition space-y-2 flex flex-col">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[9px] font-bold font-mono tracking-wider px-1.5 py-0.5 rounded uppercase border bg-indigo-500/15 text-indigo-300 border-indigo-500/30">{tag}</span>
+                            <span className={`text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${isHigh ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30'}`}>
+                              {(ins.severity || 'normal').toUpperCase()} IMPACT
+                            </span>
+                          </div>
+                          <h5 className="text-xs font-bold text-white leading-snug">{ins.title}</h5>
+                          <p className="text-[11px] text-slate-300 leading-relaxed flex-1">{ins.description}</p>
+                          {ins.recommendation && (
+                            <div className="pt-2 border-t border-slate-800/60 text-[10px] text-emerald-300 font-medium flex items-start gap-1.5">
+                              <ChevronRight className="w-3 h-3 text-emerald-400 shrink-0 mt-0.5" />
+                              <span><strong>Action:</strong> {ins.recommendation}</span>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* â”€â”€ Add Section Panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            {isAddingSection && (
+              <div className="p-5 rounded-xl border border-indigo-500/40 bg-slate-900/95 space-y-3.5 shadow-xl animate-fadeIn">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-bold text-xs text-white flex items-center gap-1.5"><Plus className="w-4 h-4 text-indigo-400" /> Create Custom Section</h4>
+                  <button onClick={() => setIsAddingSection(false)} className="text-slate-400 hover:text-white transition"><X className="w-4 h-4" /></button>
+                </div>
+                <input type="text" placeholder="Section Title..." value={newTitle} onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 transition" />
+                <textarea placeholder="Findings, observations, or analytical notes..." rows={4} value={newContent} onChange={(e) => setNewContent(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-indigo-500 font-sans transition" />
+                <div className="flex items-center justify-end gap-2">
+                  <button onClick={() => setIsAddingSection(false)} className="px-3 py-1.5 text-xs text-slate-400 hover:text-white transition">Cancel</button>
+                  <button onClick={handleCreateCustomSection} className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-semibold transition shadow">Save Section</button>
+                </div>
+              </div>
+            )}
+
+            {/* â”€â”€ Dynamic Sections â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <div className="space-y-5">
+              {report.sections?.map((sec, sIdx) => {
+                const isEditing = editingSectionId === sec.id;
+                const secIcon = getSectionIcon(sec.section_type);
+                const badgeText = getSectionBadge(sec.section_type);
+                const indexNumber = String(sIdx + 1).padStart(2, '0');
+                const charts = sec.charts_included || [];
+                const tables = sec.tables_included || [];
+                const showCharts = viewMode === 'all' || viewMode === 'dashboards';
+                const showTables = viewMode === 'all' || viewMode === 'tables';
+                const colors = SECTION_COLORS[sec.section_type] || DEFAULT_SECTION_COLOR;
+                const isSpeaking = activeSpeakingSectionId === `section-${sec.id}`;
+
+                if (viewMode === 'dashboards' && charts.length === 0 && sec.section_type !== 'executive_summary') return null;
+                if (viewMode === 'tables' && tables.length === 0 && sec.section_type !== 'dataset_overview') return null;
+
+                return (
+                  <div
+                    key={sec.id}
+                    id={`section-${sec.id}`}
+                    className={`relative overflow-hidden rounded-2xl border-l-4 border ${colors.border} shadow-lg transition-all duration-300 group ${
+                      isSpeaking ? 'border-cyan-400/60 ring-1 ring-cyan-400/30 shadow-[0_0_25px_rgba(6,182,212,0.15)]' : 'border-slate-700/60 hover:border-slate-600/60'
+                    }`}
+                  >
+                    <div className={`absolute inset-0 ${colors.bg} pointer-events-none`} />
+                    <div className="relative">
+                      {isEditing ? (
+                        <div className="p-5 space-y-3 bg-slate-950/80">
+                          <div className="flex items-center justify-between pb-2 border-b border-slate-800">
+                            <span className="text-xs font-bold text-indigo-400">Editing Section {indexNumber}</span>
+                          </div>
+                          <input type="text" value={editTitle} onChange={(e) => setEditTitle(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500 transition" />
+                          <textarea rows={6} value={editContent} onChange={(e) => setEditContent(e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-indigo-500 font-sans transition" />
+                          <div className="flex items-center justify-end gap-2 pt-1">
+                            <button onClick={() => setEditingSectionId(null)} className="px-3 py-1.5 text-xs text-slate-400 hover:text-white">Cancel</button>
+                            <button onClick={() => handleSaveSection(sec.id)} className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow">
+                              <Save className="w-3.5 h-3.5" /> Save Changes
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="p-5 space-y-4">
+                          {/* Section Header */}
+                          <div className="flex items-center justify-between gap-4 pb-3 border-b border-slate-800/60">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-800/70 px-1.5 py-0.5 rounded shrink-0">{indexNumber}</span>
+                              <div className={`p-1.5 rounded-lg bg-slate-800/70 border border-slate-700/60 shrink-0 ${colors.icon}`}>{secIcon}</div>
+                              <h3 className="font-extrabold text-sm text-white tracking-tight truncate">{sec.title}</h3>
+                              <span className={`hidden sm:inline-block text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full border shrink-0 ${colors.icon} border-current opacity-60`}>{badgeText}</span>
+                              {isSpeaking && (
+                                <span className="text-[9px] font-bold tracking-wider px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 animate-pulse flex items-center gap-1 shrink-0">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-cyan-400" /> Live
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition shrink-0">
+                              <button onClick={() => { setEditingSectionId(sec.id); setEditTitle(sec.title); setEditContent(sec.content); }} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200 transition"><Edit3 className="w-3.5 h-3.5" /></button>
+                              <button onClick={() => handleDeleteSection(sec.id)} className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-rose-400 transition"><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </div>
+
+                          {/* Section explanation */}
+                          <div className="flex items-start gap-2 text-xs text-slate-400 px-1">
+                            <Info className="w-3.5 h-3.5 text-slate-500 shrink-0 mt-0.5" />
+                            <span>{getSectionShortExplanation(sec.section_type, sec.title)}</span>
+                          </div>
+
+                          {/* Content */}
+                          <FormattedContent content={sec.content} />
+
+                          {/* Charts */}
+                          {showCharts && (
+                            <div className="space-y-3 pt-1">
+                              <div className="flex items-center justify-between">
+                                <h5 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                                  <LayoutDashboard className="w-3.5 h-3.5 text-indigo-400" /> Visualizations
+                                </h5>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] text-slate-500 font-mono">{charts.length} chart{charts.length !== 1 ? 's' : ''}</span>
+                                  <button
+                                    onClick={() => {
+                                      setChartTargetSectionId(sec.id);
+                                      setIsAiChartModalOpen(true);
+                                    }}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 font-bold flex items-center gap-1 transition shadow-sm"
+                                    title="Generate new business chart with AI for this section"
+                                  >
+                                    <Sparkles className="w-3 h-3 text-cyan-300" />
+                                    <span>+ AI Chart</span>
+                                  </button>
+                                </div>
+                              </div>
+                              {charts.length > 0 ? (
+                                <div className={`grid gap-4 ${charts.length > 1 ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+                                  {charts.map((ch, chIdx) => <ReportDashboardChartCard key={chIdx} chart={ch} />)}
+                                </div>
+                              ) : (
+                                <div className="p-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/40 flex items-center justify-between gap-3 text-xs text-slate-400">
+                                  <span>No visual charts attached to this section yet.</span>
+                                  <button
+                                    onClick={() => {
+                                      setChartTargetSectionId(sec.id);
+                                      setIsAiChartModalOpen(true);
+                                    }}
+                                    className="text-xs px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-200 border border-cyan-500/40 font-bold flex items-center gap-1.5 transition"
+                                  >
+                                    <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
+                                    <span>Generate Business Chart</span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Tables */}
+                          {showTables && tables.length > 0 && (
+                            <div className="space-y-2 pt-1">
+                              {tables.map((tbl, tIdx) => <ReportTableRenderer key={tIdx} table={tbl} />)}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* â”€â”€ Footer â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+            <div id="report-footer" className="pt-6 border-t border-slate-800/60 text-center text-[11px] text-slate-500 space-y-1 pb-6">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-indigo-500/30 to-purple-500/20 border border-indigo-500/30 flex items-center justify-center">
+                  <Sparkles className="w-3 h-3 text-indigo-400" />
+                </div>
+                <span className="font-bold text-slate-400">DATOVA Autonomous Intelligence Engine</span>
+              </div>
+              <p>Automatically generated from <strong className="text-slate-300">{currentDataset.name}</strong> Â· {currentDataset.row_count.toLocaleString()} records analyzed</p>
+              <p>Integrated visual dashboards, precision tables, and strategic AI intelligence Â· {new Date(report.created_at).toLocaleDateString()}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* â”€â”€ Floating Audio Player â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {isPlayingAudio && (
-        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl px-4 animate-slideUp">
-          <div className="bg-[#090D16]/95 border border-cyan-500/50 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_30px_rgba(6,182,212,0.25)] backdrop-blur-xl rounded-2xl p-3.5 sm:p-4 text-white flex flex-col gap-2.5">
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 w-full max-w-lg px-4 animate-slideUp">
+          <div className="bg-[#090D16]/96 border border-cyan-500/50 shadow-[0_20px_50px_rgba(0,0,0,0.85),0_0_25px_rgba(6,182,212,0.2)] backdrop-blur-xl rounded-2xl p-3.5 text-white space-y-2.5">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center flex-shrink-0">
-                  {isPausedAudio ? (
-                    <Pause className="w-4 h-4 text-amber-400" />
-                  ) : (
+                <div className="w-8 h-8 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center shrink-0">
+                  {isPausedAudio ? <Pause className="w-4 h-4 text-amber-400" /> : (
                     <div className="flex items-center gap-0.5">
                       <span className="w-1 bg-cyan-400 rounded-full animate-pulse h-3" />
                       <span className="w-1 bg-cyan-300 rounded-full animate-pulse delay-75 h-4" />
@@ -1781,97 +1783,45 @@ export const ReportView: React.FC = () => {
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">
-                      {isPausedAudio ? 'Audio Paused' : 'Reading Aloud'}
-                    </span>
-                    <span className="text-[10px] text-slate-400 font-mono">
-                      Part {currentChunkIndex + 1} of {speechQueue.length}
-                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">{isPausedAudio ? 'Paused' : 'Reading Aloud'}</span>
+                    <span className="text-[10px] text-slate-400 font-mono">Part {currentChunkIndex + 1} / {speechQueue.length}</span>
                   </div>
-                  <h6 className="text-xs font-bold text-slate-100 truncate">
-                    {speechQueue[currentChunkIndex]?.sectionTitle || 'Business Report'}
-                  </h6>
+                  <h6 className="text-xs font-bold text-slate-100 truncate">{speechQueue[currentChunkIndex]?.sectionTitle || 'Report'}</h6>
                 </div>
               </div>
-
-              {/* Controls */}
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button
-                  onClick={handlePrevSectionAudio}
-                  title="Previous Section"
-                  className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
-                >
-                  <SkipBack className="w-3.5 h-3.5" />
-                </button>
-
-                <button
-                  onClick={toggleAudioBriefing}
-                  title={isPausedAudio ? 'Resume' : 'Pause'}
-                  className={`p-2 rounded-xl text-white font-bold transition shadow-lg ${
-                    isPausedAudio
-                      ? 'bg-amber-500 hover:bg-amber-400'
-                      : 'bg-cyan-500 hover:bg-cyan-400'
-                  }`}
-                >
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button onClick={handlePrevSectionAudio} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"><SkipBack className="w-3.5 h-3.5" /></button>
+                <button onClick={toggleAudioBriefing} className={`p-2 rounded-xl text-white shadow-lg transition ${isPausedAudio ? 'bg-amber-500 hover:bg-amber-400' : 'bg-cyan-500 hover:bg-cyan-400'}`}>
                   {isPausedAudio ? <Play className="w-4 h-4 fill-white" /> : <Pause className="w-4 h-4 fill-white" />}
                 </button>
-
-                <button
-                  onClick={handleNextSectionAudio}
-                  title="Next Section"
-                  className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"
-                >
-                  <SkipForward className="w-3.5 h-3.5" />
-                </button>
-
-                <button
-                  onClick={handleCycleSpeed}
-                  title="Cycle Speech Speed"
-                  className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] font-mono font-bold text-cyan-300 hover:bg-slate-700 transition"
-                >
-                  {audioSpeed}x
-                </button>
-
-                <button
-                  onClick={stopAudioBriefing}
-                  title="Stop Audio"
-                  className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 hover:text-rose-200 transition border border-rose-500/30"
-                >
-                  <Square className="w-3.5 h-3.5" />
-                </button>
+                <button onClick={handleNextSectionAudio} className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition"><SkipForward className="w-3.5 h-3.5" /></button>
+                <button onClick={handleCycleSpeed} className="px-2 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] font-mono font-bold text-cyan-300 hover:bg-slate-700 transition">{audioSpeed}x</button>
+                <button onClick={stopAudioBriefing} className="p-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition"><Square className="w-3.5 h-3.5" /></button>
               </div>
             </div>
-
-            {/* Smooth Progress Bar */}
             <div className="w-full bg-slate-800 rounded-full h-1 overflow-hidden">
-              <div
-                className="bg-gradient-to-r from-cyan-500 to-brand-400 h-full transition-all duration-300"
-                style={{
-                  width: `${Math.min(100, Math.round(((currentChunkIndex + 1) / Math.max(1, speechQueue.length)) * 100))}%`
-                }}
-              />
+              <div className="bg-gradient-to-r from-cyan-500 to-indigo-400 h-full transition-all duration-300 rounded-full"
+                style={{ width: `${Math.min(100, Math.round(((currentChunkIndex + 1) / Math.max(1, speechQueue.length)) * 100))}%` }} />
             </div>
           </div>
         </div>
       )}
 
-      {/* Presentation Deck Fullscreen Modal */}
-      <PresentationDeckModal
-        isOpen={isDeckOpen}
-        onClose={() => setIsDeckOpen(false)}
-        report={report}
-        dataset={currentDataset}
-        kpis={analysis?.kpis}
-        insights={analysis?.insights}
-        anomalies={analysis?.anomalies}
-      />
-
-      {/* Executive Dashboard Template Report Modal */}
-      <ExecutiveDashboardReportModal
-        isOpen={isExecutiveReportOpen}
-        onClose={() => setIsExecutiveReportOpen(false)}
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
+      <PresentationDeckModal isOpen={isDeckOpen} onClose={() => setIsDeckOpen(false)} report={report} dataset={currentDataset} kpis={analysis?.kpis} insights={analysis?.insights} anomalies={analysis?.anomalies} />
+      <ExecutiveDashboardReportModal isOpen={isExecutiveReportOpen} onClose={() => setIsExecutiveReportOpen(false)} datasetId={currentDataset?.id || ''} datasetName={currentDataset?.name} />
+      <AIBusinessChartModal
+        isOpen={isAiChartModalOpen}
+        onClose={() => setIsAiChartModalOpen(false)}
         datasetId={currentDataset?.id || ''}
-        datasetName={currentDataset?.name}
+        datasetName={currentDataset?.name || ''}
+        domain={currentDataset?.detected_domain}
+        sections={report.sections}
+        onChartInjected={(updatedReport) => {
+          setReport(updatedReport);
+          setSaveStatus('Business chart added to report');
+          setTimeout(() => setSaveStatus(null), 3000);
+        }}
       />
     </div>
   );

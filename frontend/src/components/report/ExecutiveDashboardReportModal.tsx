@@ -28,7 +28,13 @@ import {
   BarChart3,
   Compass,
   Volume2,
-  Square
+  Square,
+  KeyRound,
+  Eye,
+  EyeOff,
+  Image as ImageIcon,
+  Palette,
+  Zap,
 } from 'lucide-react';
 import { api } from '../../services/api';
 import { ExecutiveDashboardReportData } from '../../types';
@@ -50,19 +56,32 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Theme: Default to 'neon' as requested by user
+  const [theme, setTheme] = useState<'neon' | 'light'>('neon');
+  const isNeon = theme === 'neon';
+
   // Layout & Narrative Controls
-  const [pageFormat, setPageFormat] = useState<'A4_PRINT' | 'WIDESCREEN_16_9'>('A4_PRINT');
+  const [pageFormat, setPageFormat] = useState<'A4_PRINT' | 'WIDESCREEN_16_9'>('WIDESCREEN_16_9');
   const [isPlainLanguage, setIsPlainLanguage] = useState<boolean>(true);
-  const [activeTab, setActiveTab] = useState<'page_1' | 'page_2' | 'page_3' | 'all_pages'>('page_1');
+  const [activeTab, setActiveTab] = useState<'page_1' | 'page_2' | 'page_3' | 'all_pages'>('all_pages');
 
   // Interactive Chart State
   const [activeTimeframe, setActiveTimeframe] = useState<'Months' | 'Years'>('Years');
   const [hoveredBarIndex, setHoveredBarIndex] = useState<number | null>(null);
   const [isDownloadingPdf, setIsDownloadingPdf] = useState<boolean>(false);
+  const [isDownloadingPng, setIsDownloadingPng] = useState<boolean>(false);
 
-  // AI Customization Drawer State
+  // AI Customization & API Key State
   const [isAiCustomizing, setIsAiCustomizing] = useState<boolean>(false);
   const [aiPrompt, setAiPrompt] = useState<string>('');
+  const [apiKey, setApiKey] = useState<string>(() => {
+    try {
+      return localStorage.getItem('datanova_executive_api_key') || '';
+    } catch {
+      return '';
+    }
+  });
+  const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [isSynthesizing, setIsSynthesizing] = useState<boolean>(false);
 
   const printRef = useRef<HTMLDivElement>(null);
@@ -75,6 +94,14 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
   const speechQueueRef = useRef<string[]>([]);
   const queueIndexRef = useRef<number>(0);
   const isSpeakingRef = useRef<boolean>(false);
+
+  // Save API key to localStorage when updated
+  const handleApiKeyChange = (val: string) => {
+    setApiKey(val);
+    try {
+      localStorage.setItem('datanova_executive_api_key', val);
+    } catch {}
+  };
 
   const cleanSpeechText = (raw: string): string => {
     return raw
@@ -109,7 +136,7 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
 
   const buildExecutiveSpeechQueue = (data: ExecutiveDashboardReportData): string[] => {
     const chunks: string[] = [];
-    chunks.push(...splitTextChunks(`Executive Performance Report for ${datasetName || data.dataset_name}.`));
+    chunks.push(...splitTextChunks(`Executive Dashboard Intelligence for ${datasetName || data.dataset_name}.`));
 
     const summaryText = isPlainLanguage
       ? (data.human_story_summary || data.plain_summary || data.executive_summary || '')
@@ -230,27 +257,30 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
     }
   }, [isOpen, datasetId]);
 
-  // AI Customize Synthesis
-  const handleAiSynthesize = async () => {
-    if (!aiPrompt.trim() || !datasetId) return;
+  // AI Customize Synthesis with optional API Key
+  const handleAiSynthesize = async (promptOverride?: string) => {
+    const finalPrompt = (promptOverride || aiPrompt).trim();
+    if (!datasetId) return;
     setIsSynthesizing(true);
     try {
       const data = await api.generateExecutiveReport(datasetId, {
-        prompt: aiPrompt.trim(),
+        prompt: finalPrompt || 'Synthesize comprehensive executive intelligence with deep strategic takeaways and business drivers',
         user_name: reportData?.user_profile.name,
-        user_role: reportData?.user_profile.role
+        user_role: reportData?.user_profile.role,
+        api_key: apiKey.trim() || undefined
       });
       setReportData(data);
       setIsAiCustomizing(false);
       setAiPrompt('');
     } catch (err: any) {
       console.error('Failed to customize report:', err);
+      alert(`AI Enhancement Error: ${err.message || 'Check your API key and connection'}`);
     } finally {
       setIsSynthesizing(false);
     }
   };
 
-  // Robust PDF Generation supporting both 3-Page A4 & 16:9 Deck
+  // Robust PDF Generation supporting both Neon 16:9 Deck & 3-Page A4
   const handleDownloadPdf = async () => {
     setIsDownloadingPdf(true);
     try {
@@ -264,8 +294,9 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
         .toLowerCase()
         .replace(/[^a-z0-9_-]+/g, '-');
 
+      const bgColor = isNeon ? '#060D1E' : '#F4F5FB';
+
       if (pageFormat === 'WIDESCREEN_16_9') {
-        // Single 16:9 Presentation Slide
         const targetElement = page1Ref.current || printRef.current;
         if (!targetElement) return;
 
@@ -273,7 +304,7 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
           scale: 2,
           useCORS: true,
           logging: false,
-          backgroundColor: '#F4F5FB',
+          backgroundColor: bgColor,
         });
 
         const imgData = canvas.toDataURL('image/png');
@@ -285,13 +316,12 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
         });
 
         pdf.addImage(imgData, 'PNG', 0, 0, 1920, 1080);
-        pdf.save(`${sanitizedName}-16x9-presentation.pdf`);
+        pdf.save(`${sanitizedName}-neon-executive-deck.pdf`);
       } else {
-        // Multi-page Standard A4 Print Document (3 Pages: The Big Picture, The Why & Where, Action Steps)
         const pdf = new jsPDF({
           orientation: 'landscape',
           unit: 'mm',
-          format: 'a4', // 297mm x 210mm
+          format: 'a4',
         });
 
         const pagesToRender = [page1Ref.current, page2Ref.current, page3Ref.current].filter(Boolean) as HTMLElement[];
@@ -302,7 +332,7 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
             scale: 2,
             useCORS: true,
             logging: false,
-            backgroundColor: '#F4F5FB',
+            backgroundColor: bgColor,
           });
 
           const imgData = canvas.toDataURL('image/png');
@@ -312,13 +342,48 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
           pdf.addImage(imgData, 'PNG', 0, 0, 297, 210);
         }
 
-        pdf.save(`${sanitizedName}-3page-executive-report.pdf`);
+        pdf.save(`${sanitizedName}-neon-executive-report.pdf`);
       }
     } catch (err) {
       console.error('Failed to generate PDF:', err);
       alert('Unable to generate PDF directly. Please try again.');
     } finally {
       setIsDownloadingPdf(false);
+    }
+  };
+
+  // High-Resolution PNG Image Download
+  const handleDownloadPng = async () => {
+    setIsDownloadingPng(true);
+    try {
+      const html2canvas = ((await import('html2canvas')).default || (await import('html2canvas'))) as (
+        element: HTMLElement,
+        options?: any
+      ) => Promise<HTMLCanvasElement>;
+
+      const targetElement = (activeTab === 'page_1' ? page1Ref.current : activeTab === 'page_2' ? page2Ref.current : activeTab === 'page_3' ? page3Ref.current : printRef.current) || printRef.current;
+      if (!targetElement) return;
+
+      const canvas = await html2canvas(targetElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: isNeon ? '#060D1E' : '#F4F5FB',
+      });
+
+      const sanitizedName = (datasetName || 'executive-dashboard')
+        .toLowerCase()
+        .replace(/[^a-z0-9_-]+/g, '-');
+
+      const link = document.createElement('a');
+      link.download = `${sanitizedName}-neon-dashboard.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (err) {
+      console.error('Failed to export PNG:', err);
+      alert('Failed to export PNG image.');
+    } finally {
+      setIsDownloadingPng(false);
     }
   };
 
@@ -357,8 +422,12 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
   const bars = reportData?.growth_chart.bars || [];
   const maxBarVal = Math.max(...bars.map((b) => b.value), 200);
 
+  // Detect key type
+  const isGeminiKey = apiKey.trim().startsWith('AIza') || apiKey.trim().length === 39;
+  const isOpenAiKey = apiKey.trim().startsWith('sk-');
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 md:p-6 animate-fadeIn">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-black/90 backdrop-blur-xl flex items-center justify-center p-2 sm:p-4 md:p-6 animate-fadeIn">
       {/* Print Specific CSS */}
       <style>{`
         @media print {
@@ -375,7 +444,7 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
             width: 100%;
             margin: 0;
             padding: 0;
-            background: #F4F5FB !important;
+            background: ${isNeon ? '#060D1E' : '#F4F5FB'} !important;
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
           }
@@ -394,55 +463,72 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
       <div
         ref={printRef}
         id="executive-report-printable"
-        className="w-full max-w-[1500px] bg-[#F4F5FB] text-slate-800 rounded-3xl shadow-2xl border border-indigo-100/70 overflow-hidden flex flex-col my-auto relative max-h-[95vh]"
+        className={`w-full max-w-[1540px] rounded-3xl overflow-hidden flex flex-col my-auto relative max-h-[96vh] transition-colors duration-300 ${
+          isNeon
+            ? 'bg-[#060D1E] text-slate-100 border border-cyan-500/35 shadow-[0_20px_70px_rgba(0,0,0,0.95),0_0_40px_rgba(6,182,212,0.18)]'
+            : 'bg-[#F4F5FB] text-slate-800 border border-indigo-100/70 shadow-2xl'
+        }`}
         style={{ fontFamily: "'Inter', system-ui, -apple-system, sans-serif" }}
       >
         {/* Action Header Bar (No Print) */}
-        <div className="no-print px-5 py-3 bg-white/90 backdrop-blur-md border-b border-indigo-100/60 flex items-center justify-between flex-wrap gap-3 shrink-0">
+        <div
+          className={`no-print px-5 py-3 border-b flex items-center justify-between flex-wrap gap-3 shrink-0 backdrop-blur-xl ${
+            isNeon
+              ? 'bg-[#0A1329]/95 border-cyan-500/25 text-white'
+              : 'bg-white/90 border-indigo-100/60 text-slate-800'
+          }`}
+        >
           {/* Title and Dataset Name */}
           <div className="flex items-center gap-3">
-            <span className="w-2.5 h-2.5 rounded-full bg-[#6366F1] animate-pulse" />
+            <span className={`w-2.5 h-2.5 rounded-full ${isNeon ? 'bg-cyan-400 shadow-[0_0_10px_#22d3ee] animate-pulse' : 'bg-[#6366F1]'}`} />
             <div>
-              <h2 className="text-xs font-black uppercase tracking-wider text-[#4338CA] flex items-center gap-2">
-                Executive Storytelling Report
+              <h2 className={`text-xs font-black uppercase tracking-wider flex items-center gap-2 ${isNeon ? 'text-cyan-300' : 'text-[#4338CA]'}`}>
+                Executive Dashboard
+                <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-200 border border-cyan-500/40">
+                  {isNeon ? '⚡ NEON QUANTUM' : 'CORPORATE'}
+                </span>
                 <span className="text-slate-400 font-normal">•</span>
-                <span className="text-slate-700 font-bold">{datasetName}</span>
+                <span className={`font-bold ${isNeon ? 'text-white' : 'text-slate-700'}`}>{datasetName}</span>
               </h2>
             </div>
           </div>
 
-          {/* Center: Controls for Plain English & Page Format */}
+          {/* Center: Controls for Theme, Plain English & Page Format */}
           <div className="flex items-center gap-2 flex-wrap">
+            {/* Theme Toggle (Neon vs Light) */}
+            <button
+              onClick={() => setTheme(isNeon ? 'light' : 'neon')}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-sm ${
+                isNeon
+                  ? 'bg-gradient-to-r from-cyan-500/20 to-purple-500/20 text-cyan-300 border-cyan-500/40 hover:bg-cyan-500/30 shadow-[0_0_12px_rgba(6,182,212,0.25)]'
+                  : 'bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200'
+              }`}
+              title="Toggle between Neon Quantum theme and Corporate Light theme"
+            >
+              <Palette className={`w-3.5 h-3.5 ${isNeon ? 'text-cyan-400' : 'text-indigo-600'}`} />
+              <span>{isNeon ? '⚡ Neon Theme' : '📄 Light Theme'}</span>
+            </button>
+
             {/* Plain English Toggle */}
             <button
               onClick={() => setIsPlainLanguage(!isPlainLanguage)}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-sm ${
                 isPlainLanguage
-                  ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                  : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                  ? isNeon
+                    ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+                    : 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                  : isNeon
+                  ? 'bg-slate-800/80 text-slate-400 border-slate-700'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'
               }`}
-              title="Switch between plain language and corporate terminology"
+              title="Switch between plain narrative and technical corporate terminology"
             >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
               <span>{isPlainLanguage ? 'Plain Language: ON' : 'Plain Language: OFF'}</span>
             </button>
 
             {/* Format Preset Selector */}
-            <div className="bg-slate-100/90 p-0.5 rounded-xl flex items-center border border-slate-200/70">
-              <button
-                onClick={() => {
-                  setPageFormat('A4_PRINT');
-                  setActiveTab('page_1');
-                }}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                  pageFormat === 'A4_PRINT'
-                    ? 'bg-white text-indigo-700 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
-                }`}
-              >
-                <Printer className="w-3 h-3" />
-                <span>A4 Standard Print</span>
-              </button>
+            <div className={`p-0.5 rounded-xl flex items-center border ${isNeon ? 'bg-[#081226] border-slate-700/80' : 'bg-slate-100/90 border-slate-200/70'}`}>
               <button
                 onClick={() => {
                   setPageFormat('WIDESCREEN_16_9');
@@ -450,58 +536,59 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                 }}
                 className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
                   pageFormat === 'WIDESCREEN_16_9'
-                    ? 'bg-white text-indigo-700 shadow-sm'
-                    : 'text-slate-500 hover:text-slate-800'
+                    ? isNeon
+                      ? 'bg-cyan-500 text-black shadow-[0_0_12px_#22d3ee]'
+                      : 'bg-white text-indigo-700 shadow-sm'
+                    : isNeon ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <Monitor className="w-3 h-3" />
                 <span>16:9 Screen</span>
               </button>
+              <button
+                onClick={() => {
+                  setPageFormat('A4_PRINT');
+                  setActiveTab('page_1');
+                }}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+                  pageFormat === 'A4_PRINT'
+                    ? isNeon
+                      ? 'bg-cyan-500 text-black shadow-[0_0_12px_#22d3ee]'
+                      : 'bg-white text-indigo-700 shadow-sm'
+                    : isNeon ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Printer className="w-3 h-3" />
+                <span>A4 Multi-Page</span>
+              </button>
             </div>
 
             {/* Page Navigation Tabs (When A4 format is active) */}
             {pageFormat === 'A4_PRINT' && (
-              <div className="bg-indigo-50/70 p-0.5 rounded-xl flex items-center border border-indigo-100">
-                <button
-                  onClick={() => setActiveTab('page_1')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                    activeTab === 'page_1'
-                      ? 'bg-[#4F46E5] text-white shadow-sm'
-                      : 'text-indigo-700 hover:bg-indigo-100/60'
-                  }`}
-                >
-                  Page 1: Big Picture
-                </button>
-                <button
-                  onClick={() => setActiveTab('page_2')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                    activeTab === 'page_2'
-                      ? 'bg-[#4F46E5] text-white shadow-sm'
-                      : 'text-indigo-700 hover:bg-indigo-100/60'
-                  }`}
-                >
-                  Page 2: Breakdown
-                </button>
-                <button
-                  onClick={() => setActiveTab('page_3')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                    activeTab === 'page_3'
-                      ? 'bg-[#4F46E5] text-white shadow-sm'
-                      : 'text-indigo-700 hover:bg-indigo-100/60'
-                  }`}
-                >
-                  Page 3: Action Steps
-                </button>
-                <button
-                  onClick={() => setActiveTab('all_pages')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
-                    activeTab === 'all_pages'
-                      ? 'bg-[#4F46E5] text-white shadow-sm'
-                      : 'text-indigo-700 hover:bg-indigo-100/60'
-                  }`}
-                >
-                  All 3 Pages
-                </button>
+              <div className={`p-0.5 rounded-xl flex items-center border ${isNeon ? 'bg-[#091533] border-cyan-500/25' : 'bg-indigo-50/70 border-indigo-100'}`}>
+                {(['page_1', 'page_2', 'page_3', 'all_pages'] as const).map((p) => {
+                  const labels = {
+                    page_1: 'Page 1: Big Picture',
+                    page_2: 'Page 2: Drivers',
+                    page_3: 'Page 3: Actions',
+                    all_pages: 'All Pages'
+                  };
+                  return (
+                    <button
+                      key={p}
+                      onClick={() => setActiveTab(p)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-bold transition ${
+                        activeTab === p
+                          ? isNeon
+                            ? 'bg-cyan-500 text-black font-extrabold shadow-sm'
+                            : 'bg-[#4F46E5] text-white shadow-sm'
+                          : isNeon ? 'text-slate-400 hover:text-white' : 'text-indigo-700 hover:bg-indigo-100/60'
+                      }`}
+                    >
+                      {labels[p]}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -514,9 +601,11 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-sm ${
                 isSpeaking
                   ? 'bg-amber-500 hover:bg-amber-600 text-white border-amber-600 animate-pulse'
+                  : isNeon
+                  ? 'bg-[#0B1736] hover:bg-[#112352] text-cyan-300 border-cyan-500/30'
                   : 'bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] border-indigo-200/60'
               }`}
-              title={isSpeaking ? 'Stop voice reading' : 'Read executive report aloud clearly from beginning to end'}
+              title={isSpeaking ? 'Stop voice reading' : 'Read executive briefing aloud'}
             >
               {isSpeaking ? (
                 <>
@@ -525,93 +614,179 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                 </>
               ) : (
                 <>
-                  <Volume2 className="w-3.5 h-3.5" />
+                  <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
                   <span>Listen</span>
                 </>
               )}
             </button>
 
+            {/* AI Enhance with API Key Button */}
             <button
               onClick={() => setIsAiCustomizing(!isAiCustomizing)}
-              className="px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] text-xs font-bold transition flex items-center gap-1.5 border border-indigo-200/60 shadow-sm"
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-sm ${
+                isAiCustomizing
+                  ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white border-cyan-400 shadow-[0_0_15px_#22d3ee]'
+                  : isNeon
+                  ? 'bg-gradient-to-r from-cyan-500/15 via-indigo-500/15 to-purple-500/15 text-cyan-300 border-cyan-500/40 hover:border-cyan-400'
+                  : 'bg-indigo-50 hover:bg-indigo-100 text-[#4F46E5] border-indigo-200/60'
+              }`}
+              title="Use custom API key to enhance the dashboard, key business charts and strategic insights"
             >
-              <Sparkles className="w-3.5 h-3.5" />
-              <span>AI Focus</span>
+              <Zap className="w-3.5 h-3.5 text-cyan-300 animate-pulse" />
+              <span>AI Enhance (API Key)</span>
             </button>
 
+            {/* Download PNG */}
+            <button
+              onClick={handleDownloadPng}
+              disabled={isDownloadingPng}
+              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 border shadow-sm disabled:opacity-60 ${
+                isNeon
+                  ? 'bg-[#0B1738] hover:bg-[#11224f] text-cyan-200 border-cyan-500/30 hover:border-cyan-400/60'
+                  : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+              }`}
+              title="Download high-resolution image of the dashboard"
+            >
+              <ImageIcon className={`w-3.5 h-3.5 ${isDownloadingPng ? 'animate-spin' : 'text-cyan-400'}`} />
+              <span className="hidden sm:inline">{isDownloadingPng ? 'Exporting...' : 'PNG'}</span>
+            </button>
+
+            {/* Download PDF */}
             <button
               onClick={handleDownloadPdf}
               disabled={isDownloadingPdf}
-              className="px-4 py-1.5 rounded-xl bg-[#4F46E5] hover:bg-[#4338CA] text-white text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm disabled:opacity-60 ${
+                isNeon
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-black font-extrabold shadow-[0_0_15px_rgba(6,182,212,0.4)]'
+                  : 'bg-[#4F46E5] hover:bg-[#4338CA] text-white'
+              }`}
             >
               <Download className={`w-3.5 h-3.5 ${isDownloadingPdf ? 'animate-bounce' : ''}`} />
               <span>
                 {isDownloadingPdf
                   ? 'Generating PDF...'
                   : pageFormat === 'A4_PRINT'
-                  ? 'Download 3-Page A4 PDF'
-                  : 'Download 16:9 PDF'}
+                  ? 'A4 PDF'
+                  : '16:9 PDF'}
               </span>
             </button>
 
+            {/* Close Button */}
             <button
               onClick={onClose}
-              className="p-1.5 rounded-xl hover:bg-slate-200/80 text-slate-500 hover:text-slate-800 transition"
+              className={`p-1.5 rounded-xl transition ${
+                isNeon ? 'hover:bg-slate-800 text-slate-400 hover:text-white' : 'hover:bg-slate-200 text-slate-500 hover:text-slate-800'
+              }`}
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* AI Customization Drawer Popover */}
+        {/* AI Customization & API Key Drawer */}
         {isAiCustomizing && (
-          <div className="no-print p-4 bg-gradient-to-r from-indigo-950 via-slate-900 to-indigo-950 text-white border-b border-indigo-500/30 flex items-center justify-between gap-3 flex-wrap shrink-0">
-            <div className="flex items-center gap-3 flex-1 min-w-[300px]">
-              <div className="w-8 h-8 rounded-xl bg-indigo-500/20 text-indigo-300 flex items-center justify-center border border-indigo-500/30">
-                <Sparkles className="w-4 h-4" />
+          <div className="no-print p-4 bg-[#081226] text-white border-b border-cyan-500/30 flex flex-col gap-3 shrink-0 animate-fadeIn">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-xl bg-cyan-500/20 text-cyan-300 flex items-center justify-center border border-cyan-500/30">
+                  <KeyRound className="w-4 h-4" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white flex items-center gap-2">
+                    AI Dashboard Enhancement Engine
+                    {isGeminiKey && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Gemini Key Detected</span>}
+                    {isOpenAiKey && <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">OpenAI Key Detected</span>}
+                  </h4>
+                  <p className="text-[10px] text-slate-400">
+                    Provide your Gemini or OpenAI API key to calculate deeper business drivers, tailored financial charts, and strategic insights.
+                  </p>
+                </div>
               </div>
-              <input
-                type="text"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="e.g. Focus on everyday language, direct community impact, and next quarter actions..."
-                className="flex-1 bg-slate-900 border border-indigo-500/40 text-xs text-white placeholder-slate-400 rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-400"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAiSynthesize();
-                }}
-              />
+
+              {/* Preset directive pills */}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span className="text-[10px] text-slate-400 font-mono">Quick Focus:</span>
+                {[
+                  { label: '💰 Revenue & Margins', prompt: 'Focus on revenue drivers, unit economics, and profit margin optimization' },
+                  { label: '📈 Growth & Velocity', prompt: 'Highlight user acquisition velocity, retention cohorts, and market expansion' },
+                  { label: '⚠️ Risk & Mitigation', prompt: 'Deep-dive on anomaly detection, concentration risks, and operational safeguards' },
+                ].map((preset, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setAiPrompt(preset.prompt);
+                      handleAiSynthesize(preset.prompt);
+                    }}
+                    className="text-[10px] px-2 py-0.5 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 border border-cyan-500/25 transition"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handleAiSynthesize}
-                disabled={isSynthesizing || !aiPrompt.trim()}
-                className="px-4 py-2 rounded-xl bg-[#6366F1] hover:bg-[#4F46E5] text-white text-xs font-bold transition disabled:opacity-50 flex items-center gap-1.5 shadow-md"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isSynthesizing ? 'animate-spin' : ''}`} />
-                <span>{isSynthesizing ? 'Customizing...' : 'Apply AI Focus'}</span>
-              </button>
-              <button
-                onClick={() => setIsAiCustomizing(false)}
-                className="text-slate-400 hover:text-white text-xs px-2 py-1"
-              >
-                Cancel
-              </button>
+
+            <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
+              {/* API Key Input */}
+              <div className="md:col-span-5 relative">
+                <input
+                  type={showApiKey ? 'text' : 'password'}
+                  value={apiKey}
+                  onChange={(e) => handleApiKeyChange(e.target.value)}
+                  placeholder="API Key (e.g. AIza... for Gemini or sk-... for OpenAI)"
+                  className="w-full bg-[#050C1A] border border-cyan-500/40 text-xs text-white placeholder-slate-500 rounded-xl pl-3 pr-9 py-2 focus:outline-none focus:border-cyan-400 font-mono"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white"
+                  title={showApiKey ? 'Hide Key' : 'Show Key'}
+                >
+                  {showApiKey ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
+              {/* Directive Prompt */}
+              <div className="md:col-span-5">
+                <input
+                  type="text"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="Custom Directive (e.g. Focus on community impact and next quarter growth...)"
+                  className="w-full bg-[#050C1A] border border-cyan-500/40 text-xs text-white placeholder-slate-500 rounded-xl px-3 py-2 focus:outline-none focus:border-cyan-400"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAiSynthesize();
+                  }}
+                />
+              </div>
+
+              {/* Run Button */}
+              <div className="md:col-span-2 flex items-center gap-2">
+                <button
+                  onClick={() => handleAiSynthesize()}
+                  disabled={isSynthesizing}
+                  className="w-full py-2 rounded-xl bg-gradient-to-r from-cyan-500 to-indigo-600 hover:from-cyan-400 hover:to-indigo-500 text-white text-xs font-bold transition disabled:opacity-50 flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(6,182,212,0.35)]"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isSynthesizing ? 'animate-spin' : ''}`} />
+                  <span>{isSynthesizing ? 'Enhancing...' : '⚡ Enhance AI'}</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
 
         {/* Loading / Error States */}
         {loading ? (
-          <div className="p-24 flex flex-col items-center justify-center gap-3 text-slate-500 flex-1">
-            <RefreshCw className="w-8 h-8 animate-spin text-[#6366F1]" />
-            <span className="text-sm font-semibold">Structuring Plain-Language Executive Report...</span>
+          <div className="p-24 flex flex-col items-center justify-center gap-3 text-slate-400 flex-1">
+            <RefreshCw className="w-8 h-8 animate-spin text-cyan-400" />
+            <span className="text-sm font-semibold">Synthesizing Executive Dashboard Intelligence...</span>
           </div>
         ) : error ? (
-          <div className="p-16 text-center text-rose-600 space-y-2 flex-1 flex flex-col justify-center items-center">
+          <div className="p-16 text-center text-rose-400 space-y-2 flex-1 flex flex-col justify-center items-center">
             <p className="font-bold">{error}</p>
             <button
               onClick={loadTemplate}
-              className="px-4 py-2 rounded-xl bg-[#6366F1] text-white text-xs font-bold"
+              className="px-4 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold"
             >
               Retry Generation
             </button>
@@ -624,29 +799,39 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
             {(activeTab === 'page_1' || activeTab === 'all_pages' || pageFormat === 'WIDESCREEN_16_9') && (
               <div
                 ref={page1Ref}
-                className="page-break-container bg-white rounded-3xl p-6 sm:p-7 border border-indigo-100 shadow-sm space-y-5"
+                className={`page-break-container rounded-3xl p-6 sm:p-7 space-y-5 transition-colors duration-300 ${
+                  isNeon
+                    ? 'bg-[#081226]/90 border border-cyan-500/30 shadow-[0_0_35px_rgba(6,182,212,0.12)]'
+                    : 'bg-white border border-indigo-100 shadow-sm'
+                }`}
               >
                 {/* Page 1 Header */}
-                <div className="flex items-center justify-between gap-4 pb-3 border-b border-indigo-100/80">
+                <div className={`flex items-center justify-between gap-4 pb-3 border-b ${isNeon ? 'border-cyan-500/20' : 'border-indigo-100/80'}`}>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-indigo-100 text-indigo-800">
-                        Page 1 • The Big Picture
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                        isNeon ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-indigo-100 text-indigo-800'
+                      }`}>
+                        Executive Intelligence • Page 1
                       </span>
-                      <span className="text-sm font-black text-slate-900">
-                        {isPlainLanguage ? 'Executive Summary & Main Trend' : (reportData.header.title || 'Profile Growth')}
+                      <span className={`text-sm font-black ${isNeon ? 'text-white' : 'text-slate-900'}`}>
+                        {isPlainLanguage ? 'Executive Summary & Dominant Growth Pattern' : (reportData.header.title || 'Profile Growth')}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className={`text-xs font-medium ${isNeon ? 'text-slate-400' : 'text-slate-500'}`}>
                       {isPlainLanguage
-                        ? 'High-level snapshot showing overall direction and critical takeaways'
+                        ? 'High-level snapshot showing overall direction, revenue drivers, and critical takeaways'
                         : (reportData.header.subtitle || 'Overall Strategic Telemetry')}
                     </p>
                   </div>
 
                   {/* Profile Block */}
                   <div className="flex items-center gap-3 shrink-0">
-                    <div className="w-9 h-9 rounded-full bg-amber-100 border border-amber-200 overflow-hidden flex items-center justify-center text-amber-800 shadow-sm shrink-0 font-bold text-xs">
+                    <div className={`w-9 h-9 rounded-full overflow-hidden flex items-center justify-center font-bold text-xs shrink-0 ${
+                      isNeon
+                        ? 'bg-gradient-to-tr from-cyan-500 to-indigo-600 text-white shadow-[0_0_10px_#22d3ee] border border-cyan-400/50'
+                        : 'bg-amber-100 border border-amber-200 text-amber-800'
+                    }`}>
                       {reportData.user_profile.name
                         ? reportData.user_profile.name
                             .split(' ')
@@ -655,10 +840,10 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                         : 'ML'}
                     </div>
                     <div className="text-left hidden sm:block">
-                      <div className="text-xs font-black text-slate-900 leading-tight">
+                      <div className={`text-xs font-black leading-tight ${isNeon ? 'text-white' : 'text-slate-900'}`}>
                         {reportData.user_profile.name}
                       </div>
-                      <div className="text-[11px] text-slate-400 font-medium">
+                      <div className={`text-[11px] font-medium ${isNeon ? 'text-cyan-400/80' : 'text-slate-400'}`}>
                         {reportData.user_profile.role}
                       </div>
                     </div>
@@ -666,15 +851,23 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                 </div>
 
                 {/* 1. Human Story Lead Summary Card */}
-                <div className="bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 rounded-2xl p-4 sm:p-5 border border-indigo-200/80 flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-[#4F46E5] text-white flex items-center justify-center shrink-0 shadow-md">
+                <div className={`rounded-2xl p-4 sm:p-5 flex items-start gap-4 border transition-colors ${
+                  isNeon
+                    ? 'bg-gradient-to-r from-cyan-950/40 via-indigo-950/30 to-purple-950/40 border-cyan-500/35 shadow-[0_0_20px_rgba(6,182,212,0.15)]'
+                    : 'bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 border-indigo-200/80'
+                }`}>
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-md ${
+                    isNeon
+                      ? 'bg-gradient-to-tr from-cyan-500 to-blue-600 text-black font-extrabold shadow-[0_0_15px_#22d3ee]'
+                      : 'bg-[#4F46E5] text-white'
+                  }`}>
                     <BookOpen className="w-5 h-5" />
                   </div>
                   <div className="space-y-1 flex-1">
-                    <div className="text-[10px] font-black uppercase tracking-wider text-indigo-700">
-                      {isPlainLanguage ? 'The Human Story & Community Impact' : 'Executive Overview'}
+                    <div className={`text-[10px] font-black uppercase tracking-wider ${isNeon ? 'text-cyan-400' : 'text-indigo-700'}`}>
+                      {isPlainLanguage ? 'Executive Strategic Story & Narrative' : 'Executive Overview'}
                     </div>
-                    <p className="text-sm font-bold text-slate-900 leading-relaxed">
+                    <p className={`text-sm font-bold leading-relaxed ${isNeon ? 'text-slate-100' : 'text-slate-900'}`}>
                       {isPlainLanguage
                         ? (reportData.human_story_summary || reportData.plain_summary || reportData.executive_summary)
                         : (reportData.executive_summary || reportData.plain_summary)}
@@ -682,64 +875,89 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                   </div>
                 </div>
 
-                {/* 2. Top Hero Numbers Row (3 to 4 Massive Clean Cards) */}
+                {/* 2. Top Hero Numbers Row (4 Massive Neon/Light Cards) */}
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5">
-                  {reportData.top_kpis.map((kpi) => (
-                    <div
-                      key={kpi.id}
-                      className="bg-[#F8FAFC] rounded-2xl p-4 border border-slate-200/80 shadow-sm flex flex-col justify-between"
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#6366F1] flex items-center justify-center shadow-sm shrink-0">
-                          {renderTopKpiIcon(kpi.icon)}
+                  {reportData.top_kpis.map((kpi, idx) => {
+                    const neonStyles = [
+                      'border-cyan-500/40 bg-gradient-to-br from-cyan-950/40 to-[#0A1633] text-cyan-300 shadow-[0_0_20px_rgba(6,182,212,0.15)]',
+                      'border-purple-500/40 bg-gradient-to-br from-purple-950/40 to-[#0A1633] text-purple-300 shadow-[0_0_20px_rgba(168,85,247,0.15)]',
+                      'border-emerald-500/40 bg-gradient-to-br from-emerald-950/40 to-[#0A1633] text-emerald-300 shadow-[0_0_20px_rgba(16,185,129,0.15)]',
+                      'border-amber-500/40 bg-gradient-to-br from-amber-950/40 to-[#0A1633] text-amber-300 shadow-[0_0_20px_rgba(245,158,11,0.15)]',
+                    ];
+                    const neonGlowStyle = neonStyles[idx % neonStyles.length];
+
+                    return (
+                      <div
+                        key={kpi.id}
+                        className={`rounded-2xl p-4 border flex flex-col justify-between transition-all duration-300 hover:scale-[1.02] ${
+                          isNeon
+                            ? neonGlowStyle
+                            : 'bg-[#F8FAFC] border-slate-200/80 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-7 h-7 rounded-xl flex items-center justify-center shadow-sm shrink-0 ${
+                            isNeon
+                              ? 'bg-white/10 text-white border border-white/20'
+                              : 'bg-gradient-to-br from-[#7C3AED] to-[#6366F1]'
+                          }`}>
+                            {renderTopKpiIcon(kpi.icon)}
+                          </div>
+                          <span className={`text-xs font-bold truncate ${isNeon ? 'text-slate-200' : 'text-slate-700'}`}>
+                            {isPlainLanguage && kpi.plain_title ? kpi.plain_title : kpi.title}
+                          </span>
                         </div>
-                        <span className="text-xs font-bold text-slate-700 truncate">
-                          {isPlainLanguage && kpi.plain_title ? kpi.plain_title : kpi.title}
-                        </span>
-                      </div>
 
-                      <div className="text-2xl font-black text-indigo-950 tracking-tight mb-1">
-                        {kpi.value}
-                      </div>
+                        <div className={`text-2xl font-black tracking-tight mb-1 ${isNeon ? 'text-white drop-shadow-[0_0_8px_rgba(255,255,255,0.4)]' : 'text-indigo-950'}`}>
+                          {kpi.value}
+                        </div>
 
-                      <div className="text-[11px] font-bold flex items-center justify-between">
-                        <span className={kpi.is_positive ? 'text-emerald-600' : 'text-rose-500'}>
-                          {kpi.delta}
-                        </span>
-                        <span className="text-[10px] text-slate-400 font-normal">
-                          {isPlainLanguage ? 'vs last cycle' : 'MoM pace'}
-                        </span>
+                        <div className="text-[11px] font-bold flex items-center justify-between">
+                          <span className={kpi.is_positive ? (isNeon ? 'text-emerald-400 font-mono' : 'text-emerald-600') : (isNeon ? 'text-rose-400 font-mono' : 'text-rose-500')}>
+                            {kpi.delta}
+                          </span>
+                          <span className={`text-[10px] font-normal ${isNeon ? 'text-slate-400' : 'text-slate-400'}`}>
+                            {isPlainLanguage ? 'vs benchmark' : 'MoM pace'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* 3. Dominant Timeline / Growth Capsule Chart */}
-                <div className="bg-[#F8FAFC] rounded-2xl p-5 border border-slate-200/80 space-y-3">
+                <div className={`rounded-2xl p-5 border space-y-3 ${
+                  isNeon
+                    ? 'bg-[#071126]/90 border-cyan-500/25 shadow-[0_0_25px_rgba(6,182,212,0.1)]'
+                    : 'bg-[#F8FAFC] border-slate-200/80'
+                }`}>
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-sm sm:text-base font-black text-indigo-950">
+                      <h3 className={`text-sm sm:text-base font-black ${isNeon ? 'text-white' : 'text-indigo-950'}`}>
                         {isPlainLanguage && reportData.growth_chart.plain_title
                           ? reportData.growth_chart.plain_title
                           : reportData.growth_chart.title}
                       </h3>
-                      {/* Contextual Subtitle Box */}
-                      <p className="text-xs text-indigo-700/80 font-semibold mt-0.5">
+                      <p className={`text-xs font-semibold mt-0.5 ${isNeon ? 'text-cyan-400/80' : 'text-indigo-700/80'}`}>
                         {isPlainLanguage && reportData.growth_chart.plain_subtitle
                           ? reportData.growth_chart.plain_subtitle
-                          : 'This chart shows continuous output trends over the reporting timeline.'}
+                          : 'Continuous metric trend output across the reporting timeline'}
                       </p>
                     </div>
 
-                    <div className="bg-white p-0.5 rounded-full flex items-center gap-1 border border-slate-200 shadow-sm">
+                    <div className={`p-0.5 rounded-full flex items-center gap-1 border shadow-sm ${
+                      isNeon ? 'bg-[#091533] border-cyan-500/30' : 'bg-white border-slate-200'
+                    }`}>
                       {['Months', 'Years'].map((tf) => (
                         <button
                           key={tf}
                           onClick={() => setActiveTimeframe(tf as any)}
                           className={`px-3 py-0.5 rounded-full text-xs font-bold transition ${
                             activeTimeframe === tf
-                              ? 'bg-[#4F46E5] text-white shadow-sm'
-                              : 'text-slate-500 hover:text-slate-800'
+                              ? isNeon
+                                ? 'bg-cyan-500 text-black shadow-[0_0_10px_#22d3ee]'
+                                : 'bg-[#4F46E5] text-white shadow-sm'
+                              : isNeon ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-800'
                           }`}
                         >
                           {tf}
@@ -751,20 +969,28 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                   {/* Capsule Chart Canvas */}
                   <div className="relative pt-6 pb-2">
                     <div
-                      className="absolute top-0 right-[15%] sm:right-[16%] z-10 -translate-y-2 bg-[#4F46E5] text-white px-3 py-1 rounded-2xl shadow-lg shadow-indigo-500/30 text-center pointer-events-none animate-bounce"
+                      className={`absolute top-0 right-[15%] sm:right-[16%] z-10 -translate-y-2 px-3 py-1 rounded-2xl text-center pointer-events-none animate-bounce ${
+                        isNeon
+                          ? 'bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-[0_0_20px_#06b6d4]'
+                          : 'bg-[#4F46E5] text-white shadow-lg shadow-indigo-500/30'
+                      }`}
                       style={{ animationDuration: '3s' }}
                     >
-                      <div className="text-[9px] text-indigo-200 font-medium leading-none mb-0.5">
+                      <div className="text-[9px] text-cyan-100 font-medium leading-none mb-0.5">
                         {reportData.growth_chart.floating_tooltip.label}
                       </div>
                       <div className="text-xs font-black tracking-wide leading-none">
                         {reportData.growth_chart.floating_tooltip.value}
                       </div>
-                      <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 bg-[#4F46E5] rotate-45" />
+                      <div className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rotate-45 ${
+                        isNeon ? 'bg-indigo-600' : 'bg-[#4F46E5]'
+                      }`} />
                     </div>
 
-                    <div className="relative h-40 flex items-end">
-                      <div className="absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] text-slate-400 font-mono select-none pr-3">
+                    <div className="relative h-44 flex items-end">
+                      <div className={`absolute left-0 top-0 bottom-6 flex flex-col justify-between text-[10px] font-mono select-none pr-3 ${
+                        isNeon ? 'text-cyan-400/70' : 'text-slate-400'
+                      }`}>
                         {reportData.growth_chart.y_axis_labels.map((yLabel) => (
                           <span key={yLabel}>{yLabel}</span>
                         ))}
@@ -772,7 +998,7 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
 
                       <div className="absolute left-9 right-0 top-0 bottom-6 flex flex-col justify-between pointer-events-none">
                         {[0, 1, 2, 3].map((g) => (
-                          <div key={g} className="w-full border-b border-slate-200/60" />
+                          <div key={g} className={`w-full border-b ${isNeon ? 'border-cyan-500/10' : 'border-slate-200/60'}`} />
                         ))}
                       </div>
 
@@ -789,21 +1015,29 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                               onMouseLeave={() => setHoveredBarIndex(null)}
                             >
                               {(bar.display_val || isHovered) && (
-                                <span className="text-[10px] font-bold text-slate-600 mb-1 leading-none absolute -top-4">
+                                <span className={`text-[10px] font-bold mb-1 leading-none absolute -top-4 ${
+                                  isNeon ? 'text-cyan-300 font-mono drop-shadow-[0_0_4px_#22d3ee]' : 'text-slate-600'
+                                }`}>
                                   {bar.display_val || bar.value}
                                 </span>
                               )}
 
                               <div
                                 style={{ height: `${heightPct}%` }}
-                                className={`w-3 sm:w-3.5 rounded-full transition-all duration-300 ${
-                                  bar.fill_type === 'gradient'
+                                className={`w-3.5 sm:w-4 rounded-full transition-all duration-300 ${
+                                  isNeon
+                                    ? bar.fill_type === 'gradient'
+                                      ? 'bg-gradient-to-t from-cyan-600 via-cyan-400 to-white shadow-[0_0_15px_rgba(6,182,212,0.8)]'
+                                      : 'bg-cyan-950/70 border border-cyan-500/40 hover:bg-cyan-800/50'
+                                    : bar.fill_type === 'gradient'
                                     ? 'bg-gradient-to-t from-[#4338CA] via-[#6366F1] to-[#818CF8] shadow-sm'
                                     : 'bg-[#C7D2FE]/70 hover:bg-[#A5B4FC]'
-                                } ${isHovered ? 'scale-y-105 shadow-md shadow-indigo-500/20' : ''}`}
+                                } ${isHovered ? 'scale-y-105 shadow-md shadow-cyan-500/40' : ''}`}
                               />
 
-                              <span className="text-[10px] font-semibold text-slate-400 mt-1.5 absolute -bottom-5">
+                              <span className={`text-[10px] font-semibold mt-1.5 absolute -bottom-5 ${
+                                isNeon ? 'text-slate-400 font-mono' : 'text-slate-400'
+                              }`}>
                                 {bar.day}
                               </span>
                             </div>
@@ -817,27 +1051,33 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
             )}
 
             {/* ========================================================================= */}
-            {/* PAGE 2: THE "WHY" AND "WHERE" (Detailed Breakdown & Friendly Bar Charts)  */}
+            {/* PAGE 2: DRIVERS & CATEGORICAL BREAKDOWNS (Horizontal Neon Progress Bars) */}
             {/* ========================================================================= */}
             {(activeTab === 'page_2' || activeTab === 'all_pages' || pageFormat === 'WIDESCREEN_16_9') && (
               <div
                 ref={page2Ref}
-                className="page-break-container bg-white rounded-3xl p-6 sm:p-7 border border-indigo-100 shadow-sm space-y-5"
+                className={`page-break-container rounded-3xl p-6 sm:p-7 space-y-5 transition-colors duration-300 ${
+                  isNeon
+                    ? 'bg-[#081226]/90 border border-cyan-500/30 shadow-[0_0_35px_rgba(6,182,212,0.12)]'
+                    : 'bg-white border border-indigo-100 shadow-sm'
+                }`}
               >
                 {/* Page 2 Header */}
-                <div className="flex items-center justify-between gap-4 pb-3 border-b border-indigo-100/80">
+                <div className={`flex items-center justify-between gap-4 pb-3 border-b ${isNeon ? 'border-cyan-500/20' : 'border-indigo-100/80'}`}>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-purple-100 text-purple-800">
-                        Page 2 • The "Why" & "Where"
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                        isNeon ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        Segment Drivers • Page 2
                       </span>
-                      <span className="text-sm font-black text-slate-900">
-                        {isPlainLanguage ? 'Where & Why Results Happened' : 'Detailed Breakdown & Driver Attribution'}
+                      <span className={`text-sm font-black ${isNeon ? 'text-white' : 'text-slate-900'}`}>
+                        {isPlainLanguage ? 'Activity Drivers & Categorical Value Attribution' : 'Detailed Breakdown & Driver Attribution'}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className={`text-xs font-medium ${isNeon ? 'text-slate-400' : 'text-slate-500'}`}>
                       {isPlainLanguage
-                        ? 'Friendly horizontal comparisons showing which categories drove the most progress'
+                        ? 'High-impact horizontal comparisons showing which specific segments generated the most output'
                         : 'Cohort breakdown, throughput distribution, and operational metrics'}
                     </p>
                   </div>
@@ -845,47 +1085,57 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                   {/* Left: Friendly Horizontal Bar Distribution (7 cols) */}
-                  <div className="lg:col-span-7 bg-[#F8FAFC] rounded-2xl p-5 border border-slate-200/80 space-y-4">
+                  <div className={`lg:col-span-7 rounded-2xl p-5 border space-y-4 ${
+                    isNeon
+                      ? 'bg-[#071126]/90 border-cyan-500/25'
+                      : 'bg-[#F8FAFC] border-slate-200/80'
+                  }`}>
                     <div>
                       <div className="flex items-center gap-2">
-                        <BarChart3 className="w-4 h-4 text-[#4F46E5]" />
-                        <h4 className="text-sm font-black text-indigo-950">
-                          {isPlainLanguage ? 'Activity Share by Category' : 'Volume Breakdown by Segment'}
+                        <BarChart3 className={`w-4 h-4 ${isNeon ? 'text-cyan-400' : 'text-[#4F46E5]'}`} />
+                        <h4 className={`text-sm font-black ${isNeon ? 'text-white' : 'text-indigo-950'}`}>
+                          {isPlainLanguage ? 'Volume Share by Category' : 'Volume Breakdown by Segment'}
                         </h4>
                       </div>
-                      <p className="text-xs text-slate-500 font-medium mt-0.5">
+                      <p className={`text-xs font-medium mt-0.5 ${isNeon ? 'text-slate-400' : 'text-slate-500'}`}>
                         {isPlainLanguage
-                          ? 'This friendly bar chart makes it easy to see which specific programs contributed the most value.'
+                          ? 'Vibrant comparative bars showing which programs and channels generated the largest portion of value.'
                           : 'Segment share aggregated across core categorical dimensions.'}
                       </p>
                     </div>
 
                     {/* Horizontal Bar Items */}
-                    <div className="space-y-3 pt-2">
+                    <div className="space-y-3.5 pt-2">
                       {(reportData.horizontal_breakdowns || [
-                        { name: 'Community Programs', value: '$420,000', percentage: 92, note: 'Highest active engagement' },
-                        { name: 'Direct Assistance', value: '$310,500', percentage: 78, note: 'Steady monthly delivery' },
-                        { name: 'Education & Support', value: '$215,000', percentage: 58, note: 'Growing 15% this quarter' },
-                        { name: 'Health & Wellness', value: '$140,000', percentage: 42, note: 'Expanding into 3 new areas' },
+                        { name: 'Core Initiatives', value: '$420,000', percentage: 92, note: 'Highest active engagement' },
+                        { name: 'Direct Fulfillment', value: '$310,500', percentage: 78, note: 'Steady monthly delivery' },
+                        { name: 'Specialty Support', value: '$215,000', percentage: 58, note: 'Growing 15% this quarter' },
+                        { name: 'Strategic Expansion', value: '$140,000', percentage: 42, note: 'Expanding into 3 new areas' },
                         { name: 'General Operations', value: '$95,000', percentage: 28, note: 'Optimized low overhead' }
                       ]).map((item, idx) => (
                         <div key={idx} className="space-y-1">
                           <div className="flex items-center justify-between text-xs">
-                            <span className="font-bold text-slate-800">{item.name}</span>
+                            <span className={`font-bold ${isNeon ? 'text-slate-200' : 'text-slate-800'}`}>{item.name}</span>
                             <div className="flex items-center gap-2">
-                              <span className="font-black text-indigo-950">{item.value}</span>
-                              <span className="text-[10px] text-slate-400 font-medium">({item.percentage}%)</span>
+                              <span className={`font-black ${isNeon ? 'text-cyan-300 font-mono drop-shadow-[0_0_6px_rgba(6,182,212,0.4)]' : 'text-indigo-950'}`}>{item.value}</span>
+                              <span className={`text-[10px] font-medium ${isNeon ? 'text-slate-400' : 'text-slate-400'}`}>({item.percentage}%)</span>
                             </div>
                           </div>
                           {/* Progress Track */}
-                          <div className="w-full h-3 bg-slate-200/70 rounded-full overflow-hidden">
+                          <div className={`w-full h-3 rounded-full overflow-hidden ${
+                            isNeon ? 'bg-slate-900 border border-cyan-500/20' : 'bg-slate-200/70'
+                          }`}>
                             <div
                               style={{ width: `${item.percentage}%` }}
-                              className="h-full bg-gradient-to-r from-[#4F46E5] to-[#818CF8] rounded-full transition-all duration-500"
+                              className={`h-full rounded-full transition-all duration-500 ${
+                                isNeon
+                                  ? 'bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-500 shadow-[0_0_12px_rgba(6,182,212,0.6)]'
+                                  : 'bg-gradient-to-r from-[#4F46E5] to-[#818CF8]'
+                              }`}
                             />
                           </div>
                           {item.note && (
-                            <div className="text-[10px] text-slate-500 font-medium pl-1">
+                            <div className={`text-[10px] font-medium pl-1 ${isNeon ? 'text-slate-400' : 'text-slate-500'}`}>
                               • {item.note}
                             </div>
                           )}
@@ -901,30 +1151,38 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                       {reportData.driver_cards.map((driver) => (
                         <div
                           key={driver.id}
-                          className="bg-[#F8FAFC] rounded-2xl p-3.5 border border-slate-200/80 flex flex-col justify-between"
+                          className={`rounded-2xl p-3.5 border flex flex-col justify-between transition-colors ${
+                            isNeon
+                              ? 'bg-[#071126]/90 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
+                              : 'bg-[#F8FAFC] border-slate-200/80'
+                          }`}
                         >
                           <div className="flex items-center gap-2 mb-1.5">
-                            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#6366F1] flex items-center justify-center text-white shrink-0 shadow-sm">
+                            <div className={`w-6 h-6 rounded-lg flex items-center justify-center text-white shrink-0 shadow-sm ${
+                              isNeon ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'bg-gradient-to-br from-[#7C3AED] to-[#6366F1]'
+                            }`}>
                               {renderDriverIcon(driver.icon)}
                             </div>
-                            <span className="text-[11px] font-bold text-slate-700 truncate">
+                            <span className={`text-[11px] font-bold truncate ${isNeon ? 'text-slate-200' : 'text-slate-700'}`}>
                               {isPlainLanguage && driver.plain_title ? driver.plain_title : driver.title}
                             </span>
                           </div>
 
-                          <div className="text-lg font-black text-indigo-950 mb-0.5">
+                          <div className={`text-lg font-black mb-0.5 ${isNeon ? 'text-white font-mono drop-shadow-[0_0_6px_rgba(255,255,255,0.3)]' : 'text-indigo-950'}`}>
                             {driver.value}
                           </div>
 
                           <div className="text-[10px] font-bold flex items-center justify-between">
-                            <span className={driver.is_positive ? 'text-emerald-600' : 'text-rose-500'}>
+                            <span className={driver.is_positive ? (isNeon ? 'text-emerald-400 font-mono' : 'text-emerald-600') : (isNeon ? 'text-rose-400 font-mono' : 'text-rose-500')}>
                               {driver.delta}
                             </span>
-                            <span className="text-[9px] text-slate-400">vs benchmark</span>
+                            <span className={`text-[9px] ${isNeon ? 'text-slate-500' : 'text-slate-400'}`}>vs benchmark</span>
                           </div>
 
                           {driver.explanation && (
-                            <p className="text-[10px] text-slate-500 mt-2 pt-1 border-t border-slate-200/60 leading-tight">
+                            <p className={`text-[10px] mt-2 pt-1 border-t leading-tight ${
+                              isNeon ? 'border-cyan-500/15 text-slate-400' : 'border-slate-200/60 text-slate-500'
+                            }`}>
                               {driver.explanation}
                             </p>
                           )}
@@ -933,20 +1191,30 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                     </div>
 
                     {/* Monthly Progress Snapshot Bar Card */}
-                    <div className="bg-[#F8FAFC] rounded-2xl p-4 border border-slate-200/80 space-y-2">
+                    <div className={`rounded-2xl p-4 border space-y-2 ${
+                      isNeon
+                        ? 'bg-[#071126]/90 border-cyan-500/25 shadow-[0_0_15px_rgba(6,182,212,0.08)]'
+                        : 'bg-[#F8FAFC] border-slate-200/80'
+                    }`}>
                       <div className="flex items-center justify-between">
-                        <h4 className="text-xs font-bold text-slate-800">
-                          {isPlainLanguage ? 'Quarterly Progress Checks' : 'Audit Velocity'}
+                        <h4 className={`text-xs font-bold ${isNeon ? 'text-slate-200' : 'text-slate-800'}`}>
+                          {isPlainLanguage ? 'Operational Pacing Checks' : 'Audit Velocity'}
                         </h4>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold border ${
+                          isNeon
+                            ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
+                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                        }`}>
                           Consistent
                         </span>
                       </div>
                       <div className="grid grid-cols-3 gap-2 pt-1">
                         {reportData.analytics_card.bars.map((b, idx) => (
-                          <div key={idx} className="bg-white p-2.5 rounded-xl border border-slate-200 text-center">
-                            <span className="text-[10px] text-slate-400 font-medium block">{b.date}</span>
-                            <span className="text-sm font-black text-indigo-950 block">{b.value}%</span>
+                          <div key={idx} className={`p-2.5 rounded-xl border text-center ${
+                            isNeon ? 'bg-[#050C1B] border-cyan-500/20' : 'bg-white border-slate-200'
+                          }`}>
+                            <span className={`text-[10px] font-medium block ${isNeon ? 'text-slate-400' : 'text-slate-400'}`}>{b.date}</span>
+                            <span className={`text-sm font-black block font-mono ${isNeon ? 'text-cyan-300' : 'text-indigo-950'}`}>{b.value}%</span>
                           </div>
                         ))}
                       </div>
@@ -957,27 +1225,33 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
             )}
 
             {/* ========================================================================= */}
-            {/* PAGE 3: CLEAR TAKEAWAYS & ACTION STEPS (Impact & Actionable Playbook)     */}
+            {/* PAGE 3: STRATEGIC INSIGHTS & ACTION PLAYBOOK (AI Enriched)                */}
             {/* ========================================================================= */}
             {(activeTab === 'page_3' || activeTab === 'all_pages' || pageFormat === 'WIDESCREEN_16_9') && (
               <div
                 ref={page3Ref}
-                className="page-break-container bg-white rounded-3xl p-6 sm:p-7 border border-indigo-100 shadow-sm space-y-5"
+                className={`page-break-container rounded-3xl p-6 sm:p-7 space-y-5 transition-colors duration-300 ${
+                  isNeon
+                    ? 'bg-[#081226]/90 border border-cyan-500/30 shadow-[0_0_35px_rgba(6,182,212,0.12)]'
+                    : 'bg-white border border-indigo-100 shadow-sm'
+                }`}
               >
                 {/* Page 3 Header */}
-                <div className="flex items-center justify-between gap-4 pb-3 border-b border-indigo-100/80">
+                <div className={`flex items-center justify-between gap-4 pb-3 border-b ${isNeon ? 'border-cyan-500/20' : 'border-indigo-100/80'}`}>
                   <div>
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-800">
-                        Page 3 • Action & Impact
+                      <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${
+                        isNeon ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30' : 'bg-emerald-100 text-emerald-800'
+                      }`}>
+                        Actionable Intelligence • Page 3
                       </span>
-                      <span className="text-sm font-black text-slate-900">
-                        {isPlainLanguage ? 'Clear Takeaways & Next Action Steps' : 'Strategic Governance & Next Milestones'}
+                      <span className={`text-sm font-black ${isNeon ? 'text-white' : 'text-slate-900'}`}>
+                        {isPlainLanguage ? 'Key Story Takeaways & Strategic Action Steps' : 'Strategic Governance & Next Milestones'}
                       </span>
                     </div>
-                    <p className="text-xs text-slate-500 font-medium">
+                    <p className={`text-xs font-medium ${isNeon ? 'text-slate-400' : 'text-slate-500'}`}>
                       {isPlainLanguage
-                        ? 'What these numbers mean for our community and what concrete steps we are taking next'
+                        ? 'Concrete next steps and high-order business takeaways enriched by LLM reasoning'
                         : 'Actionable playbooks, risk mitigation, and milestone commitments'}
                     </p>
                   </div>
@@ -986,36 +1260,44 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
                   {/* Left Column: Key Insights & Community Takeaways (6 cols) */}
                   <div className="lg:col-span-6 space-y-3">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{isPlainLanguage ? 'Key Story Takeaways' : 'Strategic Insights'}</span>
+                    <h4 className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${isNeon ? 'text-cyan-300' : 'text-slate-800'}`}>
+                      <Sparkles className={`w-3.5 h-3.5 ${isNeon ? 'text-cyan-400' : 'text-indigo-600'}`} />
+                      <span>{isPlainLanguage ? 'Key Strategic Takeaways' : 'Strategic Insights'}</span>
                     </h4>
 
                     {(reportData.business_insights || []).map((insight, idx) => (
                       <div
                         key={idx}
-                        className="bg-[#F8FAFC] rounded-2xl p-4 border border-slate-200/80 space-y-1.5 hover:border-indigo-200 transition"
+                        className={`rounded-2xl p-4 border space-y-1.5 transition-all duration-200 ${
+                          isNeon
+                            ? 'bg-[#071126]/90 border-cyan-500/25 hover:border-cyan-400/60 shadow-[0_0_15px_rgba(6,182,212,0.06)]'
+                            : 'bg-[#F8FAFC] border-slate-200/80 hover:border-indigo-200'
+                        }`}
                       >
                         <div className="flex items-center justify-between gap-2">
                           <span
-                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${
+                            className={`text-[9px] font-black uppercase px-2 py-0.5 rounded-full border ${
                               insight.is_positive
-                                ? 'bg-indigo-100 text-indigo-800'
-                                : 'bg-amber-100 text-amber-800'
+                                ? isNeon
+                                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40 shadow-[0_0_8px_rgba(16,185,129,0.3)]'
+                                  : 'bg-indigo-100 text-indigo-800 border-transparent'
+                                : isNeon
+                                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-[0_0_8px_rgba(245,158,11,0.3)]'
+                                : 'bg-amber-100 text-amber-800 border-transparent'
                             }`}
                           >
                             {isPlainLanguage && insight.plain_tag ? insight.plain_tag : insight.tag}
                           </span>
-                          <span className="text-xs font-black text-emerald-600">
+                          <span className={`text-xs font-black font-mono ${isNeon ? 'text-emerald-400' : 'text-emerald-600'}`}>
                             {isPlainLanguage && insight.plain_impact ? insight.plain_impact : insight.impact}
                           </span>
                         </div>
 
-                        <div className="text-xs font-bold text-slate-900">
+                        <div className={`text-xs font-bold ${isNeon ? 'text-white' : 'text-slate-900'}`}>
                           {isPlainLanguage && insight.plain_title ? insight.plain_title : insight.title}
                         </div>
 
-                        <p className="text-xs text-slate-600 leading-relaxed">
+                        <p className={`text-xs leading-relaxed ${isNeon ? 'text-slate-300' : 'text-slate-600'}`}>
                           {isPlainLanguage && insight.plain_detail ? insight.plain_detail : insight.detail}
                         </p>
                       </div>
@@ -1024,33 +1306,45 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
 
                   {/* Right Column: Action Steps Checklist & Milestones (6 cols) */}
                   <div className="lg:col-span-6 space-y-3">
-                    <h4 className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
-                      <ListTodo className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{isPlainLanguage ? 'Concrete Next Steps' : 'Actionable Roadmap'}</span>
+                    <h4 className={`text-xs font-black uppercase tracking-wider flex items-center gap-1.5 ${isNeon ? 'text-emerald-300' : 'text-slate-800'}`}>
+                      <ListTodo className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>{isPlainLanguage ? 'Concrete Next Action Steps' : 'Actionable Roadmap'}</span>
                     </h4>
 
                     {/* Action Items List */}
                     <div className="space-y-2.5">
                       {(reportData.action_steps || [
-                        { id: 'a1', title: 'Expand Top Performing Programs', description: 'Allocate resources to the 2 fastest growing initiatives.', due_date: 'Next 30 Days', status: 'In Progress' },
-                        { id: 'a2', title: 'Streamline Participant Onboarding', description: 'Reduce wait times from 5 days to 2 days for new members.', due_date: 'Next 60 Days', status: 'Ready' },
-                        { id: 'a3', title: 'Community Progress Update', description: 'Publish quarterly plain-language recap for all participants.', due_date: 'Ongoing', status: 'Scheduled' }
+                        { id: 'a1', title: 'Expand Top Performing Initiatives', description: 'Allocate key focus to the two fastest growing categorical segments.', due_date: 'Next 30 Days', status: 'In Progress' },
+                        { id: 'a2', title: 'Streamline Process Turnaround', description: 'Reduce turnaround cycles from 5 days to 2 days for core transactions.', due_date: 'Next 60 Days', status: 'Ready' },
+                        { id: 'a3', title: 'Quarterly Executive Review', description: 'Publish quarterly plain-language recap for stakeholders and board members.', due_date: 'Ongoing', status: 'Scheduled' }
                       ]).map((act) => (
                         <div
                           key={act.id}
-                          className="bg-[#F8FAFC] rounded-2xl p-3.5 border border-slate-200/80 flex items-start gap-3"
+                          className={`rounded-2xl p-3.5 border flex items-start gap-3 transition-colors ${
+                            isNeon
+                              ? 'bg-[#071126]/90 border-cyan-500/25'
+                              : 'bg-[#F8FAFC] border-slate-200/80'
+                          }`}
                         >
-                          <div className="w-6 h-6 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs">
+                          <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 mt-0.5 font-bold text-xs ${
+                            isNeon
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-emerald-100 text-emerald-700'
+                          }`}>
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           </div>
                           <div className="flex-1 space-y-0.5">
                             <div className="flex items-center justify-between">
-                              <span className="text-xs font-bold text-slate-900">{act.title}</span>
-                              <span className="text-[10px] px-2 py-0.5 rounded-md bg-white border border-slate-200 text-slate-600 font-bold">
+                              <span className={`text-xs font-bold ${isNeon ? 'text-white' : 'text-slate-900'}`}>{act.title}</span>
+                              <span className={`text-[10px] px-2 py-0.5 rounded-md font-bold border ${
+                                isNeon
+                                  ? 'bg-[#050C1B] border-cyan-500/30 text-cyan-300'
+                                  : 'bg-white border-slate-200 text-slate-600'
+                              }`}>
                                 {act.due_date}
                               </span>
                             </div>
-                            <p className="text-[11px] text-slate-500 leading-tight">
+                            <p className={`text-[11px] leading-tight ${isNeon ? 'text-slate-400' : 'text-slate-500'}`}>
                               {act.description}
                             </p>
                           </div>
@@ -1059,21 +1353,33 @@ export const ExecutiveDashboardReportModal: React.FC<ExecutiveDashboardReportMod
                     </div>
 
                     {/* Quality & Verification Assurance Box */}
-                    <div className="bg-gradient-to-r from-emerald-500/10 to-teal-500/10 rounded-2xl p-4 border border-emerald-200/80 flex items-center justify-between gap-4">
+                    <div className={`rounded-2xl p-4 border flex items-center justify-between gap-4 transition-colors ${
+                      isNeon
+                        ? 'bg-gradient-to-r from-cyan-950/40 via-emerald-950/40 to-cyan-950/40 border-cyan-500/30 shadow-[0_0_20px_rgba(6,182,212,0.1)]'
+                        : 'bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border-emerald-200/80'
+                    }`}>
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                          isNeon
+                            ? 'bg-emerald-500 text-black font-extrabold shadow-[0_0_12px_#34d399]'
+                            : 'bg-emerald-600 text-white'
+                        }`}>
                           <ShieldCheck className="w-5 h-5" />
                         </div>
                         <div>
-                          <div className="text-xs font-black text-slate-900">
-                            {isPlainLanguage ? 'Quality & Verification Check' : 'Audit Compliance Passed'}
+                          <div className={`text-xs font-black ${isNeon ? 'text-white' : 'text-slate-900'}`}>
+                            {isPlainLanguage ? 'Quality & Data Verification Check' : 'Audit Compliance Certified'}
                           </div>
-                          <div className="text-[11px] text-slate-500 font-medium">
-                            {reportData.audit_card.radial_percentage}% of metrics verified accurate
+                          <div className={`text-[11px] font-medium ${isNeon ? 'text-slate-400' : 'text-slate-500'}`}>
+                            {reportData.audit_card.radial_percentage}% of telemetry metrics verified accurate
                           </div>
                         </div>
                       </div>
-                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                      <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full border ${
+                        isNeon
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-400/40 shadow-[0_0_10px_rgba(16,185,129,0.3)]'
+                          : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                      }`}>
                         100% Certified
                       </span>
                     </div>
