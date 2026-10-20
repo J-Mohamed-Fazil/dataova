@@ -1,5 +1,7 @@
 import logging
 import json
+import uuid
+import time
 from typing import Dict, Any, List, Optional
 from collections import deque
 import numpy as np
@@ -50,10 +52,10 @@ class DashboardGenerator:
                 )
             ]
 
-            # 2. Extract true quantitative numeric columns (strictly excluding internal columns and ID columns)
+            # 2. Extract true quantitative numeric columns (strictly excluding internal columns, dates, and ID columns)
             raw_nums = [c for c in df.select_dtypes(include=["number"]).columns if not str(c).startswith("_")]
-            clean_nums = [c for c in raw_nums if not cls._is_id_column(c)]
-            nums = clean_nums if clean_nums else raw_nums
+            clean_nums = [c for c in raw_nums if not cls._is_id_column(c) and c not in dates]
+            nums = clean_nums
 
             # 3. Categorical columns (strictly exclude dates, ID columns, and internal columns)
             raw_cats = [c for c in sample_df.select_dtypes(include=["object", "category", "string"]).columns if not str(c).startswith("_")]
@@ -67,8 +69,21 @@ class DashboardGenerator:
                     if c not in dates and 1 < sample_df[c].nunique() <= 60
                 ]
 
+            # 3b. Fallback: If categorical columns are scarce or missing, discover low-cardinality discrete columns (e.g. store_id, promotion_id, status_code)
+            if not cats or len(cats) < 2:
+                id_cat_candidates = [
+                    c for c in raw_nums
+                    if c not in dates and 1 < sample_df[c].nunique() <= 100 and c not in cats
+                ]
+                cats.extend(id_cat_candidates)
+
+            # 3c. If clean_nums is empty, fallback to non-primary-key numeric columns so numerical operations can still occur
+            if not nums and raw_nums:
+                non_pk_nums = [c for c in raw_nums if c not in dates and c != df.columns[0]]
+                nums = non_pk_nums if non_pk_nums else [raw_nums[-1]]
+
             geo_keywords = ["country", "nation", "state", "region", "city", "location", "province", "territory", "zone", "geo"]
-            geos = [c for c in cats if any(k in c.lower() for k in geo_keywords)]
+            geos = [c for c in cats if any(k in str(c).lower() for k in geo_keywords)]
 
             # Specialized metric clusters
             rev_keywords = ["revenue", "sales", "turnover", "total", "amount", "gross", "income", "spend", "salary"]
@@ -101,7 +116,8 @@ class DashboardGenerator:
     def infer_domain_and_semantic_context(
         cls,
         dataframes: Dict[str, pd.DataFrame],
-        profiles: Optional[Dict[str, Dict[str, Any]]] = None
+        profiles: Optional[Dict[str, Dict[str, Any]]] = None,
+        preset_domain: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Deep semantic analysis that understands data types, column semantics, table context,
@@ -124,7 +140,7 @@ class DashboardGenerator:
                 "label": "Commerce & Revenue Intelligence",
                 "badge": "Commerce",
                 "icon": "DollarSign",
-                "keywords": ["product", "sku", "cart", "order", "sales", "revenue", "customer", "price", "discount", "transaction", "checkout", "catalog", "retail", "merchant", "inventory", "brand", "store", "purchase", "item", "basket"]
+                "keywords": ["product", "sku", "cart", "order", "sales", "revenue", "customer", "price", "discount", "transaction", "checkout", "catalog", "retail", "merchant", "inventory", "brand", "store", "purchase", "item", "basket", "category"]
             },
             "supply_chain_logistics": {
                 "label": "Supply Chain & Logistics Velocity",
@@ -142,7 +158,7 @@ class DashboardGenerator:
                 "label": "Financial Portfolio & Risk Intelligence",
                 "badge": "Financials",
                 "icon": "Award",
-                "keywords": ["portfolio", "ticker", "asset", "equity", "stock", "dividend", "yield", "balance", "credit", "loan", "interest", "debt", "risk_score", "return", "volatility", "alpha", "beta", "fund", "deposit", "capital", "liability"]
+                "keywords": ["portfolio", "ticker", "asset", "equity", "stock", "dividend", "yield", "balance", "credit", "loan", "interest", "debt", "risk_score", "volatility", "alpha", "beta", "deposit", "capital", "liability"]
             },
             "digital_product": {
                 "label": "Digital Product & User Engagement",
@@ -165,16 +181,35 @@ class DashboardGenerator:
         }
 
         domain_scores = {k: 0.0 for k in domain_keywords}
+        
+        # If dataset already has an established domain, give it a prior boost
+        if preset_domain:
+            pd_clean = preset_domain.lower().strip()
+            for d_key, info in domain_keywords.items():
+                if any(w in pd_clean for w in [info["badge"].lower(), info["label"].lower().split()[0].lower(), d_key.split("_")[0]]):
+                    domain_scores[d_key] += 12.0
+
         all_text_tokens = []
         for t_name, df in dataframes.items():
             all_text_tokens.extend(t_name.lower().replace("_", " ").split())
             for col in df.columns:
                 all_text_tokens.extend(str(col).lower().replace("_", " ").split())
 
+        ignore_tokens = {
+            "id", "key", "num", "code", "date", "time", "val", "value", "type", "flag", 
+            "status", "table", "data", "row", "col", "record", "order_id", "customer_id",
+            "user_id", "store_id", "product_id"
+        }
+
         for token in all_text_tokens:
+            t = token.lower().strip()
+            if t in ignore_tokens or len(t) < 3:
+                continue
             for d_key, info in domain_keywords.items():
                 for kw in info["keywords"]:
-                    if kw in token or token in kw:
+                    if t == kw or t.rstrip("s") == kw.rstrip("s"):
+                        domain_scores[d_key] += 3.0
+                    elif len(kw) >= 4 and len(t) >= 4 and kw in t:
                         domain_scores[d_key] += 2.0
 
         best_domain_key = max(domain_scores, key=domain_scores.get)
@@ -206,7 +241,8 @@ class DashboardGenerator:
         all_dataframes: Dict[str, pd.DataFrame],
         detected_rels: Optional[List[Dict[str, Any]]] = None,
         dataset_name: str = "Dataset",
-        dataset_id: str = ""
+        dataset_id: str = "",
+        preset_domain: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Autonomously discovers and synthesizes bespoke analytical archetypes tailored strictly
@@ -227,14 +263,47 @@ class DashboardGenerator:
                 "data_profile": {}
             }
 
-        domain_info = cls.infer_domain_and_semantic_context(all_dataframes, profiles)
+        domain_info = cls.infer_domain_and_semantic_context(all_dataframes, profiles, preset_domain=preset_domain)
 
-        # Pick primary table (highest analytical cardinality)
+        # Aggregate dataset-level distinct metrics, dimensions, and temporal dates across all tables
+        dataset_all_nums: List[str] = []
+        for p_item in profiles.values():
+            for n in p_item.get("nums", []):
+                if n not in dataset_all_nums:
+                    dataset_all_nums.append(n)
+
+        dataset_all_cats: List[str] = []
+        for p_item in profiles.values():
+            for c in p_item.get("cats", []):
+                if c not in dataset_all_cats:
+                    dataset_all_cats.append(c)
+
+        dataset_all_dates: List[str] = []
+        for p_item in profiles.values():
+            for d in p_item.get("dates", []):
+                if d not in dataset_all_dates:
+                    dataset_all_dates.append(d)
+
+        # Pick primary table (highest analytical cardinality with real quantitative metrics and dimensions)
         best_t = table_names[0]
-        best_t_score = -1
+        best_t_score = -999.0
         for t in table_names:
-            p = profiles.get(t, {})
-            score = len(p.get("nums", [])) * 2 + len(p.get("cats", [])) * 3 + len(p.get("dates", [])) * 2
+            p_cand = profiles.get(t, {})
+            p_nums = p_cand.get("nums", [])
+            p_cats = p_cand.get("cats", [])
+            p_dates = p_cand.get("dates", [])
+            p_revs = p_cand.get("revenue_nums", [])
+            row_count = p_cand.get("total_rows", 0)
+
+            score = len(p_nums) * 4 + len(p_cats) * 3 + len(p_dates) * 3
+            if p_revs:
+                score += 8.0
+            if len(p_nums) > 0 and len(p_cats) > 0:
+                score += 10.0
+            if not p_nums and not p_cats:
+                score -= 25.0
+            if row_count > 1000:
+                score += 2.0
             if score > best_t_score:
                 best_t_score = score
                 best_t = t
@@ -243,10 +312,10 @@ class DashboardGenerator:
         df = all_dataframes[primary_table]
         p = profiles.get(primary_table, {})
 
-        nums = list(p.get("nums", []))
-        cats = list(p.get("cats", []))
-        dates = list(p.get("dates", []))
-        geos = list(p.get("geos", []))
+        nums = list(p.get("nums", [])) or dataset_all_nums
+        cats = list(p.get("cats", [])) or dataset_all_cats
+        dates = list(p.get("dates", [])) or dataset_all_dates
+        geos = list(p.get("geos", [])) or [c for c in dataset_all_cats if any(k in c.lower() for k in ["city", "country", "state", "region"])]
 
         # Classify numbers into scale metrics vs efficiency rates vs risk tails
         scale_keys = ["amount", "total", "sales", "revenue", "salary", "volume", "stay", "hours", "count", "headcount", "cost", "price", "temperature", "distance", "duration", "balance", "weight", "units"]
@@ -512,11 +581,15 @@ class DashboardGenerator:
         })
 
         total_cols = sum(len(df_t.columns) for df_t in all_dataframes.values())
+        reported_metrics = dataset_all_nums or nums
+        reported_dims = dataset_all_cats or cats
+        reported_dates = dataset_all_dates or dates
+
         summary = (
             f"AI analyzed {len(all_dataframes)} table(s) and {total_cols} columns. "
-            f"Detected domain: '{domain_info['label']}' with {len(nums)} quantitative metric(s) "
-            f"({', '.join(nums[:3]) if nums else 'none'}), {len(cats)} categorical dimension(s) "
-            f"({', '.join(cats[:3]) if cats else 'none'}), and {len(dates)} temporal sequence(s)."
+            f"Detected domain: '{domain_info['label']}' with {len(reported_metrics)} quantitative metric(s) "
+            f"({', '.join(reported_metrics[:4]) if reported_metrics else 'none'}), {len(reported_dims)} categorical dimension(s) "
+            f"({', '.join(reported_dims[:4]) if reported_dims else 'none'}), and {len(reported_dates)} temporal sequence(s)."
         )
 
         return {
@@ -529,10 +602,10 @@ class DashboardGenerator:
             "archetypes": archetypes,
             "data_profile": {
                 "primary_table": primary_table,
-                "primary_metrics": nums[:5],
-                "efficiency_metrics": rate_nums[:3],
-                "dimensions": cats[:5],
-                "dates": dates[:3],
+                "primary_metrics": reported_metrics[:5],
+                "efficiency_metrics": rate_nums[:3] if rate_nums else (reported_metrics[1:4] if len(reported_metrics) > 1 else []),
+                "dimensions": reported_dims[:5],
+                "dates": reported_dates[:3],
                 "domain_key": domain_info["key"],
                 "domain_badge": domain_info["badge"],
                 "domain_icon": domain_info["icon"]
@@ -1268,6 +1341,7 @@ class DashboardGenerator:
                 for hub_table, comp_tables, tree_joins in spanning_trees:
                     sheet_title = f"Cross-Table Unified Intelligence ({len(comp_tables)} Tables Connected)"
                     sheet_cross = DashboardSheet(
+                        id=str(uuid.uuid4()),
                         dataset_id=dataset_id,
                         title=sheet_title,
                         sheet_type="relational",
@@ -1278,7 +1352,6 @@ class DashboardGenerator:
                         sheet_title, comp_tables, all_dataframes, profiles, sheet_type="relational"
                     )
                     db.add(sheet_cross)
-                    db.flush()
                     sheets_created.append(sheet_cross)
                     sheet_order += 1
 
@@ -1287,10 +1360,19 @@ class DashboardGenerator:
                     # 1. Grand N-Table Unified Slicers (connecting ALL reachable tables in the component)
                     hub_p = profiles.get(hub_table, {})
                     hub_nums = hub_p.get("nums", [])
-                    if tree_joins and hub_nums:
-                        primary_metric = hub_nums[0]
+                    metric_tbl = hub_table
+                    metric_nums = hub_nums
+                    if not metric_nums:
                         for other_tbl in comp_tables:
-                            if other_tbl == hub_table:
+                            if profiles.get(other_tbl, {}).get("nums"):
+                                metric_tbl = other_tbl
+                                metric_nums = profiles[other_tbl]["nums"]
+                                break
+
+                    if tree_joins and metric_nums:
+                        primary_metric = metric_nums[0]
+                        for other_tbl in comp_tables:
+                            if other_tbl == metric_tbl:
                                 continue
                             other_p = profiles.get(other_tbl, {})
                             other_cats = other_p.get("cats", [])
@@ -1298,10 +1380,10 @@ class DashboardGenerator:
                                 c_dim = other_cats[0]
                                 c_unified = DashboardChart(
                                     sheet_id=sheet_cross.id,
-                                    title=f"{hub_table}.{primary_metric.replace('_', ' ').title()} by {other_tbl}.{c_dim.replace('_', ' ').title()} [{len(comp_tables)}-TABLE UNIFIED JOIN]",
+                                    title=f"{metric_tbl}.{primary_metric.replace('_', ' ').title()} by {other_tbl}.{c_dim.replace('_', ' ').title()} [{len(comp_tables)}-TABLE UNIFIED JOIN]",
                                     description=f"Multi-table unified join across all {len(comp_tables)} tables: {', '.join(comp_tables)}",
                                     chart_type="bar" if chart_idx % 2 == 0 else "horizontal_bar",
-                                    table_name=hub_table,
+                                    table_name=metric_tbl,
                                     join_table=other_tbl,
                                     primary_key=tree_joins[0]["primary_key"],
                                     join_key=tree_joins[0]["join_key"],
@@ -1413,6 +1495,7 @@ class DashboardGenerator:
             for t_name, df_t in all_dataframes.items():
                 p = profiles[t_name]
                 sheet_t = DashboardSheet(
+                    id=str(uuid.uuid4()),
                     dataset_id=dataset_id,
                     title=f"Table: {t_name}",
                     sheet_type="table",
@@ -1423,14 +1506,43 @@ class DashboardGenerator:
                     sheet_t.title, [t_name], all_dataframes, profiles, sheet_type="table"
                 )
                 db.add(sheet_t)
-                db.flush()
                 sheets_created.append(sheet_t)
                 sheet_order += 1
 
                 t_chart_idx = 0
 
-                for cat in p["cats"]:
-                    for num in p["nums"]:
+                # 1. Categorical breakdowns (metrics sum/avg if available, or frequency count)
+                if p["cats"] and p["nums"]:
+                    for cat in p["cats"]:
+                        for num in p["nums"]:
+                            is_geo = cat in p.get("geos", [])
+                            n_uniq = df_t[cat].nunique()
+                            if is_geo:
+                                ctype = "map"
+                            elif n_uniq > 8:
+                                ctype = "horizontal_bar"
+                            elif n_uniq > 4:
+                                ctype = "bar"
+                            else:
+                                ctype = "pie"
+
+                            c = DashboardChart(
+                                sheet_id=sheet_t.id,
+                                title=f"{num.replace('_', ' ').title()} by {cat.replace('_', ' ').title()}",
+                                description=f"Distribution of {num} across {cat}",
+                                chart_type=ctype,
+                                table_name=t_name,
+                                x_field=cat,
+                                y_field=num,
+                                aggregation="sum",
+                                grid_w=6,
+                                grid_h=4,
+                                order_index=t_chart_idx
+                            )
+                            db.add(c)
+                            t_chart_idx += 1
+                elif p["cats"]:
+                    for cat in p["cats"][:4]:
                         is_geo = cat in p.get("geos", [])
                         n_uniq = df_t[cat].nunique()
                         if is_geo:
@@ -1444,13 +1556,13 @@ class DashboardGenerator:
 
                         c = DashboardChart(
                             sheet_id=sheet_t.id,
-                            title=f"{num.replace('_', ' ').title()} by {cat.replace('_', ' ').title()}",
-                            description=f"Distribution of {num} across {cat}",
+                            title=f"Record Distribution by {cat.replace('_', ' ').title()}",
+                            description=f"Frequency distribution across {cat}",
                             chart_type=ctype,
                             table_name=t_name,
                             x_field=cat,
-                            y_field=num,
-                            aggregation="sum",
+                            y_field=cat,
+                            aggregation="count",
                             grid_w=6,
                             grid_h=4,
                             order_index=t_chart_idx
@@ -1458,17 +1570,37 @@ class DashboardGenerator:
                         db.add(c)
                         t_chart_idx += 1
 
-                for d_col in p["dates"]:
-                    for num in p["nums"]:
+                # 2. Temporal velocity & trend charts
+                if p["dates"] and p["nums"]:
+                    for d_col in p["dates"]:
+                        for num in p["nums"]:
+                            c = DashboardChart(
+                                sheet_id=sheet_t.id,
+                                title=f"{num.replace('_', ' ').title()} Over Time ({d_col.replace('_', ' ').title()})",
+                                description=f"Temporal velocity tracking for {num}",
+                                chart_type="line",
+                                table_name=t_name,
+                                x_field=d_col,
+                                y_field=num,
+                                aggregation="sum",
+                                grid_w=6,
+                                grid_h=4,
+                                order_index=t_chart_idx
+                            )
+                            db.add(c)
+                            t_chart_idx += 1
+                elif p["dates"]:
+                    for d_col in p["dates"][:2]:
                         c = DashboardChart(
                             sheet_id=sheet_t.id,
-                            title=f"{num.replace('_', ' ').title()} Over Time ({d_col.replace('_', ' ').title()})",
-                            description=f"Temporal velocity tracking for {num}",
-                            chart_type="line",
+                            title=f"Activity Volume Over Time ({d_col.replace('_', ' ').title()})",
+                            description=f"Temporal velocity tracking for {t_name}",
+                            chart_type="area",
                             table_name=t_name,
                             x_field=d_col,
-                            y_field=num,
-                            aggregation="sum",
+                            y_field=d_col,
+                            aggregation="count",
+                            config={"enable_forecast": True, "forecast_periods": 6},
                             grid_w=6,
                             grid_h=4,
                             order_index=t_chart_idx
@@ -1538,6 +1670,7 @@ class DashboardGenerator:
             p = profiles[t_name]
 
             sheet_overview = DashboardSheet(
+                id=str(uuid.uuid4()),
                 dataset_id=dataset_id,
                 title="Executive Overview",
                 sheet_type="overview",
@@ -1548,7 +1681,6 @@ class DashboardGenerator:
                 "Executive Overview", [t_name], all_dataframes, profiles, sheet_type="overview"
             )
             db.add(sheet_overview)
-            db.flush()
             sheets_created.append(sheet_overview)
             sheet_order += 1
 
@@ -1563,6 +1695,22 @@ class DashboardGenerator:
                     x_field=p["cats"][0],
                     y_field=p["nums"][0],
                     aggregation="sum",
+                    grid_w=6,
+                    grid_h=4,
+                    order_index=chart_order
+                )
+                db.add(c1)
+                chart_order += 1
+            elif p["cats"]:
+                c1 = DashboardChart(
+                    sheet_id=sheet_overview.id,
+                    title=f"Record Distribution by {p['cats'][0].replace('_', ' ').title()}",
+                    description="Primary categorical breakdown",
+                    chart_type="bar",
+                    table_name=t_name,
+                    x_field=p["cats"][0],
+                    y_field=p["cats"][0],
+                    aggregation="count",
                     grid_w=6,
                     grid_h=4,
                     order_index=chart_order
@@ -1586,6 +1734,23 @@ class DashboardGenerator:
                 )
                 db.add(c2)
                 chart_order += 1
+            elif p["dates"]:
+                c2 = DashboardChart(
+                    sheet_id=sheet_overview.id,
+                    title=f"Activity Volume Over Time ({p['dates'][0].replace('_', ' ').title()})",
+                    description="Temporal tracking trajectory",
+                    chart_type="line",
+                    table_name=t_name,
+                    x_field=p["dates"][0],
+                    y_field=p["dates"][0],
+                    aggregation="count",
+                    config={"enable_forecast": True},
+                    grid_w=6,
+                    grid_h=4,
+                    order_index=chart_order
+                )
+                db.add(c2)
+                chart_order += 1
             elif len(p["cats"]) > 1 and p["nums"]:
                 c2 = DashboardChart(
                     sheet_id=sheet_overview.id,
@@ -1596,6 +1761,22 @@ class DashboardGenerator:
                     x_field=p["cats"][1],
                     y_field=p["nums"][0],
                     aggregation="sum",
+                    grid_w=6,
+                    grid_h=4,
+                    order_index=chart_order
+                )
+                db.add(c2)
+                chart_order += 1
+            elif len(p["cats"]) > 1:
+                c2 = DashboardChart(
+                    sheet_id=sheet_overview.id,
+                    title=f"Share Distribution by {p['cats'][1].replace('_', ' ').title()}",
+                    description="Proportional share",
+                    chart_type="pie",
+                    table_name=t_name,
+                    x_field=p["cats"][1],
+                    y_field=p["cats"][1],
+                    aggregation="count",
                     grid_w=6,
                     grid_h=4,
                     order_index=chart_order
@@ -1675,6 +1856,7 @@ class DashboardGenerator:
 
             if p["cats"] and p["nums"]:
                 sheet_cats = DashboardSheet(
+                    id=str(uuid.uuid4()),
                     dataset_id=dataset_id,
                     title="Categorical & Segment Breakdowns",
                     sheet_type="categories",
@@ -1685,7 +1867,6 @@ class DashboardGenerator:
                     "Categorical & Segment Breakdowns", [t_name], all_dataframes, profiles, sheet_type="categories"
                 )
                 db.add(sheet_cats)
-                db.flush()
                 sheets_created.append(sheet_cats)
                 sheet_order += 1
 
@@ -1772,6 +1953,7 @@ class DashboardGenerator:
 
             if p["dates"] and p["nums"]:
                 sheet_trends = DashboardSheet(
+                    id=str(uuid.uuid4()),
                     dataset_id=dataset_id,
                     title="Temporal Velocity & Trends",
                     sheet_type="trends",
@@ -1782,7 +1964,6 @@ class DashboardGenerator:
                     "Temporal Velocity & Trends", [t_name], all_dataframes, profiles, sheet_type="trends"
                 )
                 db.add(sheet_trends)
-                db.flush()
                 sheets_created.append(sheet_trends)
                 sheet_order += 1
 
@@ -1806,6 +1987,7 @@ class DashboardGenerator:
 
             if p["nums"]:
                 sheet_stats = DashboardSheet(
+                    id=str(uuid.uuid4()),
                     dataset_id=dataset_id,
                     title="Distributions & Histograms",
                     sheet_type="anomalies",
@@ -1816,7 +1998,6 @@ class DashboardGenerator:
                     "Distributions & Histograms", [t_name], all_dataframes, profiles, sheet_type="anomalies"
                 )
                 db.add(sheet_stats)
-                db.flush()
                 sheets_created.append(sheet_stats)
                 sheet_order += 1
 
@@ -1839,6 +2020,7 @@ class DashboardGenerator:
 
             if len(p["nums"]) >= 2:
                 sheet_corr = DashboardSheet(
+                    id=str(uuid.uuid4()),
                     dataset_id=dataset_id,
                     title="Correlation Matrix & Scatters",
                     sheet_type="custom",
@@ -1849,7 +2031,6 @@ class DashboardGenerator:
                     "Correlation Matrix & Scatters", [t_name], all_dataframes, profiles, sheet_type="custom"
                 )
                 db.add(sheet_corr)
-                db.flush()
                 sheets_created.append(sheet_corr)
                 sheet_order += 1
 
@@ -1872,7 +2053,17 @@ class DashboardGenerator:
                         db.add(c)
                         cr_idx += 1
 
-        db.commit()
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                db.commit()
+                break
+            except Exception as e:
+                logger.warning(f"Commit attempt {attempt + 1} failed in generate_all_sheets_and_charts: {e}")
+                if attempt == max_retries - 1:
+                    db.rollback()
+                    raise
+                time.sleep(0.5 * (attempt + 1))
         return sheets_created
 
     @classmethod
@@ -1885,13 +2076,19 @@ class DashboardGenerator:
         prompt: Optional[str] = None,
         preset: Optional[str] = "executive",
         palette: str = "cyberpunk",
-        mode: str = "add_sheet"
+        mode: str = "add_sheet",
+        density: str = "balanced",
+        enable_forecast: bool = True,
+        include_anomalies: bool = True,
+        visual_flavor: str = "modern",
+        **kwargs
     ) -> List[DashboardSheet]:
         """
         AI Cognitive Synthesis Engine for custom-themed or prompt-guided dashboards.
         Constructs tailored analytical sheets with advanced dual-axis composed charts, area gradients,
         radar multi-metric profiles, and automated business insights.
         """
+        other_sheets = []
         if mode == "replace_all":
             existing = db.query(DashboardSheet).filter(DashboardSheet.dataset_id == dataset_id).all()
             for s in existing:
@@ -1899,6 +2096,13 @@ class DashboardGenerator:
             db.commit()
             sheet_order = 0
             is_default = True
+
+            # In multi-table datasets, synthesize all cross-table and table sheets alongside the AI Archetype
+            if len(all_dataframes) > 1:
+                other_sheets = cls.generate_all_sheets_and_charts(dataset_id, all_dataframes, detected_rels, db, palette=palette)
+                for os in other_sheets:
+                    os.order_index = (os.order_index or 0) + 1
+                    os.is_default = False
         else:
             existing = db.query(DashboardSheet).filter(DashboardSheet.dataset_id == dataset_id).all()
             # If all existing sheets have 0 charts (empty placeholder sheets), cleanly remove them
@@ -2007,6 +2211,7 @@ class DashboardGenerator:
             sheet_title = f"AI Archetype: {chosen_arch['title']}" if chosen_arch else "Executive Pulse & Strategic Synthesis"
 
         sheet = DashboardSheet(
+            id=str(uuid.uuid4()),
             dataset_id=dataset_id,
             title=sheet_title,
             sheet_type=preset_clean,
@@ -2017,7 +2222,6 @@ class DashboardGenerator:
             sheet_title, [primary_table], all_dataframes, profiles, sheet_type=preset_clean, preset=preset_clean, prompt=prompt_clean
         )
         db.add(sheet)
-        db.flush()
 
         chart_order = 0
         charts_created: List[DashboardChart] = []
@@ -2043,7 +2247,11 @@ class DashboardGenerator:
                     prompt_clean=prompt_clean,
                     palette=palette,
                     sheet_id=sheet.id,
-                    db=db
+                    db=db,
+                    density=density,
+                    enable_forecast=enable_forecast,
+                    include_anomalies=include_anomalies,
+                    visual_flavor=visual_flavor
                 )
                 if ai_agent_charts:
                     db.commit()
@@ -2892,7 +3100,7 @@ class DashboardGenerator:
 
         db.commit()
         db.refresh(sheet)
-        return [sheet]
+        return [sheet] + other_sheets
 
     @classmethod
     def _synthesize_with_ai_agent(
@@ -2904,7 +3112,11 @@ class DashboardGenerator:
         prompt_clean: str,
         palette: str,
         sheet_id: str,
-        db: Session
+        db: Session,
+        density: str = "balanced",
+        enable_forecast: bool = True,
+        include_anomalies: bool = True,
+        visual_flavor: str = "modern"
     ) -> Optional[List[DashboardChart]]:
         """
         Synthesizes an autonomous, custom-tailored multi-chart dashboard and business insight
@@ -3007,7 +3219,8 @@ class DashboardGenerator:
                 )
                 if chart_specs and len(chart_specs) >= 2 and not is_ungrounded:
                     charts_created = []
-                    for order_idx, spec in enumerate(chart_specs[:6]):
+                    max_specs = 4 if density == "focused" else (8 if density in ["deep", "comprehensive"] else 6)
+                    for order_idx, spec in enumerate(chart_specs[:max_specs]):
                         tbl = spec.get("table_name")
                         if tbl not in all_dataframes:
                             tbl = list(all_dataframes.keys())[0]
@@ -3043,7 +3256,7 @@ class DashboardGenerator:
                             y_field=y_f,
                             secondary_y_field=sec_y,
                             aggregation=spec.get("aggregation", "sum"),
-                            config={"palette": palette, "ai_agent_generated": True, "agent_model": provider},
+                            config={"palette": palette, "ai_agent_generated": True, "agent_model": provider, "enable_forecast": enable_forecast if ctype in ["line", "area"] else False},
                             grid_w=grid_w,
                             grid_h=spec.get("grid_h", 4),
                             order_index=order_idx
@@ -3072,7 +3285,11 @@ class DashboardGenerator:
             prompt_clean=prompt_clean,
             palette=palette,
             sheet_id=sheet_id,
-            db=db
+            db=db,
+            density=density,
+            enable_forecast=enable_forecast,
+            include_anomalies=include_anomalies,
+            visual_flavor=visual_flavor
         )
 
     @classmethod
@@ -3084,7 +3301,11 @@ class DashboardGenerator:
         prompt_clean: str,
         palette: str,
         sheet_id: str,
-        db: Session
+        db: Session,
+        density: str = "balanced",
+        enable_forecast: bool = True,
+        include_anomalies: bool = True,
+        visual_flavor: str = "modern"
     ) -> List[DashboardChart]:
         """
         Ultra-fast autonomous AI Cognitive Agent that analyzes dataset structure and synthesizes
@@ -3224,7 +3445,7 @@ class DashboardGenerator:
             x_field=time_x,
             y_field=primary_metric,
             aggregation="sum",
-            config={"palette": palette, "ai_agent_generated": True, "agent_archetype": preset_clean, "enable_forecast": bool(date_field)},
+            config={"palette": palette, "ai_agent_generated": True, "agent_archetype": preset_clean, "enable_forecast": bool(date_field and enable_forecast), "forecast_periods": 6},
             grid_w=6,
             grid_h=4,
             order_index=idx
@@ -3311,6 +3532,52 @@ class DashboardGenerator:
         charts_created.append(c6)
         idx += 1
 
+        # 7. Multi-Dimensional 2D Heatmap / Treemap (for deep density or multi-dimensional flavor)
+        if len(cats) >= 2 and nums and (density in ["deep", "comprehensive"] or visual_flavor == "multidimensional"):
+            c7 = DashboardChart(
+                sheet_id=sheet_id,
+                title=f"AI Agent: {cat_clean} by {sec_cat_clean} Matrix Heatmap",
+                description=f"Cross-dimensional cohort heatmap revealing friction points and performance hotspots.",
+                chart_type="heatmap" if len(all_dataframes[primary_table][primary_cat].dropna().unique()) <= 15 else "treemap",
+                table_name=primary_table,
+                x_field=primary_cat,
+                y_field=primary_metric,
+                secondary_y_field=secondary_cat,
+                aggregation="sum",
+                config={"palette": palette, "ai_agent_generated": True, "agent_archetype": preset_clean},
+                grid_w=12,
+                grid_h=4,
+                order_index=idx
+            )
+            db.add(c7)
+            charts_created.append(c7)
+            idx += 1
+
+        # 8. Statistical Outlier & 2σ Anomaly Histogram (if include_anomalies is enabled or deep density)
+        if nums and (include_anomalies or density in ["deep", "comprehensive"]):
+            c8 = DashboardChart(
+                sheet_id=sheet_id,
+                title=f"AI Agent: {pm_clean} Statistical Variance & Risk Tails",
+                description=f"Frequency histogram isolating 2-sigma variance outliers and fat-tail risk exposure.",
+                chart_type="histogram",
+                table_name=primary_table,
+                x_field=primary_metric,
+                y_field=primary_metric,
+                aggregation="none",
+                config={"palette": palette, "ai_agent_generated": True, "agent_archetype": preset_clean},
+                grid_w=6,
+                grid_h=4,
+                order_index=idx
+            )
+            db.add(c8)
+            charts_created.append(c8)
+            idx += 1
+
+        if density == "focused":
+            for extra_chart in charts_created[4:]:
+                db.delete(extra_chart)
+            charts_created = charts_created[:4]
+
         # Update sheet title and rich business questions
         sheet = db.query(DashboardSheet).filter(DashboardSheet.id == sheet_id).first()
         if sheet:
@@ -3335,7 +3602,6 @@ class DashboardGenerator:
                 sheet.title, [primary_table], all_dataframes, profiles, sheet_type=preset_clean, preset=preset_clean, prompt=prompt_clean
             )
 
-        db.flush()
         return charts_created
 
     @classmethod

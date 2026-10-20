@@ -372,9 +372,15 @@ export const ChatInlineChart: React.FC<ChatInlineChartProps> = ({
               <tbody className="divide-y divide-slate-800/60">
                 {data.map((row, i) => (
                   <tr key={i} className="hover:bg-slate-900/40">
-                    <td className="p-2 text-slate-200 font-medium">{row.label}</td>
+                    <td className="p-2 text-slate-200 font-medium">
+                      {typeof row.label === 'object' && row.label !== null ? JSON.stringify(row.label) : String(row.label || '')}
+                    </td>
                     <td className="p-2 text-slate-300 font-mono text-right">
-                      {typeof row.value === 'number' ? row.value.toLocaleString() : row.value}
+                      {typeof row.value === 'object' && row.value !== null
+                        ? JSON.stringify(row.value)
+                        : typeof row.value === 'number'
+                        ? row.value.toLocaleString()
+                        : String(row.value ?? '')}
                     </td>
                   </tr>
                 ))}

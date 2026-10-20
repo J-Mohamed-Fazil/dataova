@@ -77,6 +77,10 @@ class AIGenerateDashboardRequest(BaseModel):
     preset: Optional[str] = "auto"
     palette: Optional[str] = "cyberpunk"
     mode: Optional[str] = "add_sheet"
+    density: Optional[str] = "balanced"
+    enable_forecast: Optional[bool] = True
+    include_anomalies: Optional[bool] = True
+    visual_flavor: Optional[str] = "modern"
 
 class GenerateSheetInsightsRequest(BaseModel):
     prompt: Optional[str] = None
@@ -205,6 +209,9 @@ def _calculate_points_from_df(
         resolved_x = _resolve_column_name(df, x_field)
         resolved_y = _resolve_column_name(df, y_field)
 
+        top_n_cfg = int(chart_config.get("top_n", 20) or 20)
+        sort_order_cfg = str(chart_config.get("sort_order", "desc") or "desc").lower()
+
         # Smart defaults based on visualization archetype
         if ctype in ["line", "area"]:
             if not resolved_x or resolved_x not in df.columns:
@@ -227,7 +234,7 @@ def _calculate_points_from_df(
                     group_by_col=resolved_x,
                     value_col=resolved_y,
                     agg_type=agg,
-                    top_n=30,
+                    top_n=max(top_n_cfg, 30),
                     filters=filters
                 )
             return pts
@@ -249,11 +256,11 @@ def _calculate_points_from_df(
                 primary_value_col=resolved_y,
                 secondary_value_col=sec_y,
                 agg_type=agg,
-                top_n=20,
+                top_n=top_n_cfg,
                 filters=filters
             )
             if not pts:
-                pts = CalculationTools.execute_aggregation(df, group_by_col=resolved_x, value_col=resolved_y, agg_type=agg, top_n=20, filters=filters)
+                pts = CalculationTools.execute_aggregation(df, group_by_col=resolved_x, value_col=resolved_y, agg_type=agg, top_n=top_n_cfg, filters=filters)
             return pts
 
         elif ctype in ["heatmap", "heat_map"]:
@@ -321,8 +328,17 @@ def _calculate_points_from_df(
             return pts
 
         elif ctype == "table":
-            preview = df.head(12).to_dict(orient="records")
-            return [{"label": "row", "value": row} for row in preview]
+            preview = df.head(20).to_dict(orient="records")
+            results = []
+            for idx, row in enumerate(preview):
+                lbl = str(row.get(resolved_x)) if (resolved_x and resolved_x in row and pd.notnull(row.get(resolved_x))) else f"Record #{idx + 1}"
+                if resolved_y and resolved_y in row and not isinstance(row[resolved_y], (dict, list)) and pd.notnull(row[resolved_y]):
+                    val = row[resolved_y]
+                else:
+                    val_items = [f"{k}: {v}" for k, v in row.items() if not str(k).startswith("_") and k != resolved_x and pd.notnull(v)]
+                    val = " | ".join(val_items[:5]) if val_items else f"Row {idx + 1}"
+                results.append({"label": lbl, "value": val, "record": row})
+            return results
 
         else: # bar, stacked_bar, horizontal_bar, pie, map, geo, radar
             if not resolved_x or resolved_x not in df.columns:
@@ -335,7 +351,7 @@ def _calculate_points_from_df(
                 group_by_col=resolved_x,
                 value_col=resolved_y,
                 agg_type=agg,
-                top_n=30 if ctype in ["map", "geo", "horizontal_bar"] else 20,
+                top_n=top_n_cfg,
                 filters=filters
             )
             if not pts and len(valid_cols) > 0:
@@ -344,8 +360,15 @@ def _calculate_points_from_df(
                     group_by_col=valid_cols[0],
                     value_col=valid_cols[1] if len(valid_cols) > 1 else None,
                     agg_type="count",
-                    top_n=15
+                    top_n=top_n_cfg
                 )
+            if pts and isinstance(pts, list) and ctype not in ["line", "area", "scatter"]:
+                if sort_order_cfg == "asc":
+                    pts = sorted(pts, key=lambda p: (p.get("value") if isinstance(p.get("value"), (int, float)) else 0))
+                elif sort_order_cfg in ["label", "alpha"]:
+                    pts = sorted(pts, key=lambda p: str(p.get("label", "")))
+                elif sort_order_cfg == "desc":
+                    pts = sorted(pts, key=lambda p: (p.get("value") if isinstance(p.get("value"), (int, float)) else 0), reverse=True)
             return pts
     except Exception as e:
         logger.warning(f"Error computing chart points: {e}")
@@ -644,16 +667,12 @@ def generate_all_dashboards(dataset_id: str, db: Session = Depends(get_db)):
     if not dataset:
         raise HTTPException(status_code=404, detail="Dataset not found")
 
-    # 1. Delete existing sheets and charts
-    ChartDataCache.invalidate()
-    existing_sheets = db.query(DashboardSheet).filter(DashboardSheet.dataset_id == dataset_id).all()
-    for s in existing_sheets:
-        db.delete(s)
-    db.commit()
+    tables_list = list(dataset.tables)
+    tables_map = {t.table_name: t for t in tables_list}
 
-    # 2. Load all tables into DataFrames via cache
+    # 1. Load all tables into DataFrames via cache
     all_dfs: Dict[str, pd.DataFrame] = {}
-    for tbl in dataset.tables:
+    for tbl in tables_list:
         t_df = DataFrameCache.get_table_dataframe(tbl.storage_path, tbl.table_name)
         if t_df is not None:
             all_dfs[tbl.table_name] = t_df
@@ -661,7 +680,7 @@ def generate_all_dashboards(dataset_id: str, db: Session = Depends(get_db)):
     if not all_dfs:
         raise HTTPException(status_code=400, detail="No table data available to generate dashboards")
 
-    # 3. Retrieve detected relationships
+    # 2. Retrieve detected relationships
     rels = db.query(TableRelationship).filter(TableRelationship.dataset_id == dataset_id).all()
     rel_dicts = [
         {
@@ -675,16 +694,27 @@ def generate_all_dashboards(dataset_id: str, db: Session = Depends(get_db)):
         for r in rels
     ]
 
+    # 3. Cleanly clear existing sheets and charts
+    ChartDataCache.invalidate()
+    existing_sheets = db.query(DashboardSheet).filter(DashboardSheet.dataset_id == dataset_id).all()
+    for s in existing_sheets:
+        db.delete(s)
+    db.commit()
+
     # 4. Generate all sheets & charts
-    sheets = DashboardGenerator.generate_all_sheets_and_charts(
-        dataset_id=dataset_id,
-        all_dataframes=all_dfs,
-        detected_rels=rel_dicts,
-        db=db
-    )
+    try:
+        sheets = DashboardGenerator.generate_all_sheets_and_charts(
+            dataset_id=dataset_id,
+            all_dataframes=all_dfs,
+            detected_rels=rel_dicts,
+            db=db
+        )
+    except Exception as e:
+        logger.error(f"Error synthesizing all dashboards for {dataset_id}: {e}", exc_info=True)
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Failed to generate all dashboards: {str(e)}")
 
     # 5. Populate calculated chart data
-    tables_map = {t.table_name: t for t in dataset.tables}
     df_cache: Dict[str, pd.DataFrame] = dict(all_dfs)
 
     for sheet in sheets:
@@ -753,7 +783,11 @@ def ai_generate_dashboard(
             prompt=payload.prompt,
             preset=payload.preset,
             palette=payload.palette or "cyberpunk",
-            mode=payload.mode or "add_sheet"
+            mode=payload.mode or "add_sheet",
+            density=payload.density or "balanced",
+            enable_forecast=payload.enable_forecast if payload.enable_forecast is not None else True,
+            include_anomalies=payload.include_anomalies if payload.include_anomalies is not None else True,
+            visual_flavor=payload.visual_flavor or "modern"
         )
     except Exception as e:
         logger.error(f"Failed in generate_ai_themed_dashboard: {e}", exc_info=True)
@@ -825,7 +859,8 @@ def get_ai_discovered_archetypes(
         all_dataframes=all_dfs,
         detected_rels=rel_dicts,
         dataset_name=dataset.name,
-        dataset_id=dataset.id
+        dataset_id=dataset.id,
+        preset_domain=dataset.detected_domain
     )
 
 @router.post("/{dataset_id}/ai-agent-generate", response_model=List[DashboardSheetSchema])

@@ -325,7 +325,7 @@ export const DashboardView: React.FC = () => {
     const rows = chart.data.map((d, i) => [
       i + 1,
       `"${String(d.label || '').replace(/"/g, '""')}"`,
-      d.value ?? '',
+      typeof d.value === 'object' && d.value !== null ? `"${JSON.stringify(d.value).replace(/"/g, '""')}"` : (d.value ?? ''),
       d.x ?? '',
       d.y ?? ''
     ]);
@@ -358,7 +358,7 @@ export const DashboardView: React.FC = () => {
     const catCol = allColumns.find(c => c.data_type === 'categorical' || c.data_type === 'text')?.column_name;
 
     try {
-      await api.createChart({
+      const created = await api.createChart({
         sheet_id: activeSheet.id,
         title: `${numCol || 'Metric'} by ${catCol || 'Category'}`,
         chart_type: 'bar',
@@ -370,6 +370,9 @@ export const DashboardView: React.FC = () => {
         grid_h: 4
       });
       await fetchSheets();
+      if (created) {
+        setEditingChart(created);
+      }
     } catch (err) {
       console.error('Failed to add chart:', err);
     }
@@ -387,8 +390,8 @@ export const DashboardView: React.FC = () => {
       setSheets(generated);
       setActiveSheetIndex(0);
       const targetSheet = generated[0] || generated[generated.length - 1];
-      const totalNewCharts = targetSheet?.charts?.length || 0;
-      setToastMessage(`AI Agent synthesized "${targetSheet?.title || 'Data Intelligence Dashboard'}" with ${totalNewCharts} visualizations!`);
+      const totalNewCharts = generated.reduce((sum, s) => sum + (s.charts?.length || 0), 0);
+      setToastMessage(`AI Agent synthesized "${targetSheet?.title || 'Data Intelligence Dashboard'}" (${totalNewCharts} visualizations across ${generated.length} sheets)!`);
       setTimeout(() => setToastMessage(null), 5000);
     } catch (err: any) {
       console.error('Failed to generate AI Agent dashboard:', err);
@@ -1392,9 +1395,15 @@ export const DashboardView: React.FC = () => {
                       return (
                         <tr key={i} className="hover:bg-slate-900/60 transition">
                           <td className="py-2.5 px-3 text-center text-slate-500 font-mono">{i + 1}</td>
-                          <td className="py-2.5 px-4 font-medium text-white">{row.label || '—'}</td>
-                          <td className="py-2.5 px-4 text-right font-mono font-bold text-cyan-300">
-                            {typeof row.value === 'number' ? row.value.toLocaleString() : row.value}
+                          <td className="py-2.5 px-4 font-medium text-white truncate max-w-[200px]" title={typeof row.label === 'object' ? JSON.stringify(row.label) : String(row.label || '—')}>
+                            {typeof row.label === 'object' && row.label !== null ? JSON.stringify(row.label) : String(row.label || '—')}
+                          </td>
+                          <td className="py-2.5 px-4 text-right font-mono font-bold text-cyan-300 max-w-xs truncate" title={typeof row.value === 'object' ? JSON.stringify(row.value) : String(row.value ?? '')}>
+                            {typeof row.value === 'object' && row.value !== null
+                              ? JSON.stringify(row.value)
+                              : typeof row.value === 'number'
+                              ? row.value.toLocaleString()
+                              : String(row.value ?? '')}
                           </td>
                           <td className="py-2.5 px-4 text-right font-mono text-slate-400">
                             {pct}%
@@ -1439,6 +1448,16 @@ export const DashboardView: React.FC = () => {
         isOpen={isStudioOpen}
         onClose={() => setIsStudioOpen(false)}
         onChartCreated={fetchSheets}
+        onSheetCreated={async (sheetTitle: string) => {
+          if (!currentDataset) return;
+          try {
+            await api.createSheet(currentDataset.id, sheetTitle);
+            await fetchSheets();
+            setActiveSheetIndex(sheets.length);
+          } catch (err) {
+            console.error('Failed to create sheet from studio:', err);
+          }
+        }}
       />
 
       {/* AI Storyteller Presentation Deck Modal */}

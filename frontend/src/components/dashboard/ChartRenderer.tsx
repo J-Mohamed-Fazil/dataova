@@ -32,16 +32,21 @@ interface ChartRendererProps {
   chart: DashboardChart;
 }
 
-const PALETTES = [
-  '#6366f1', // Indigo
-  '#06b6d4', // Cyan
-  '#10b981', // Emerald
-  '#f59e0b', // Amber
-  '#ec4899', // Pink
-  '#8b5cf6', // Violet
-  '#3b82f6', // Blue
-  '#14b8a6', // Teal
-];
+export const THEME_PALETTES: Record<string, string[]> = {
+  cyberpunk: ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981'],
+  emerald: ['#10b981', '#059669', '#14b8a6', '#34d399', '#0d9488', '#6ee7b7'],
+  corporate: ['#3b82f6', '#4f46e5', '#2563eb', '#6366f1', '#1d4ed8', '#818cf8'],
+  sunset: ['#f59e0b', '#ea580c', '#f97316', '#e11d48', '#d97706', '#fb923c'],
+  purple: ['#8b5cf6', '#a855f7', '#7c3aed', '#c084fc', '#6366f1', '#d8b4fe'],
+};
+
+export const getChartPalette = (paletteKey?: string): string[] => {
+  if (!paletteKey) return THEME_PALETTES.cyberpunk;
+  const key = paletteKey.toLowerCase();
+  return THEME_PALETTES[key] || THEME_PALETTES.cyberpunk;
+};
+
+const PALETTES = THEME_PALETTES.cyberpunk;
 
 // Custom Sleek Glass Tooltip with Forecast & Dual-Metric Intelligence
 const CustomTooltip = ({ active, payload, label }: any) => {
@@ -58,7 +63,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
     return (
       <div className="p-3 rounded-xl bg-[#0B1120]/95 border border-slate-700/80 shadow-2xl backdrop-blur-md text-xs space-y-1.5 z-50 min-w-48">
         <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5">
-          <span className="font-semibold text-slate-200">{label || rawPoint.label || 'Dimension'}</span>
+          <span className="font-semibold text-slate-200">
+            {typeof (label || rawPoint.label) === 'object' && (label || rawPoint.label) !== null
+              ? JSON.stringify(label || rawPoint.label)
+              : String(label || rawPoint.label || 'Dimension')}
+          </span>
           {isForecast && (
             <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
               Forecast (95% CI)
@@ -77,8 +86,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               <span className="w-2 h-2 rounded-full bg-indigo-500 inline-block" />
               Primary:
             </span>
-            <span className="font-bold text-white font-mono">
-              {typeof actualVal === 'number' ? actualVal.toLocaleString(undefined, { maximumFractionDigits: 2 }) : actualVal}
+            <span className="font-bold text-white font-mono max-w-xs truncate" title={typeof actualVal === 'object' ? JSON.stringify(actualVal) : String(actualVal)}>
+              {typeof actualVal === 'object' && actualVal !== null
+                ? JSON.stringify(actualVal)
+                : typeof actualVal === 'number'
+                ? actualVal.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                : String(actualVal)}
             </span>
           </div>
         )}
@@ -89,8 +102,12 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
               Secondary:
             </span>
-            <span className="font-bold text-emerald-300 font-mono">
-              {typeof secondaryVal === 'number' ? secondaryVal.toLocaleString(undefined, { maximumFractionDigits: 2 }) : secondaryVal}
+            <span className="font-bold text-emerald-300 font-mono max-w-xs truncate" title={typeof secondaryVal === 'object' ? JSON.stringify(secondaryVal) : String(secondaryVal)}>
+              {typeof secondaryVal === 'object' && secondaryVal !== null
+                ? JSON.stringify(secondaryVal)
+                : typeof secondaryVal === 'number'
+                ? secondaryVal.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                : String(secondaryVal)}
             </span>
           </div>
         )}
@@ -102,7 +119,11 @@ const CustomTooltip = ({ active, payload, label }: any) => {
               Projected:
             </span>
             <span className="font-bold text-emerald-300 font-mono">
-              {typeof forecastVal === 'number' ? forecastVal.toLocaleString(undefined, { maximumFractionDigits: 2 }) : forecastVal}
+              {typeof forecastVal === 'object' && forecastVal !== null
+                ? JSON.stringify(forecastVal)
+                : typeof forecastVal === 'number'
+                ? forecastVal.toLocaleString(undefined, { maximumFractionDigits: 2 })
+                : String(forecastVal)}
             </span>
           </div>
         )}
@@ -285,9 +306,11 @@ const GeographicMapRenderer: React.FC<GeoMapProps> = ({ data, chartId }) => {
             <div className="flex items-center justify-between gap-3 text-[11px]">
               <span className="text-slate-400">Total Volume:</span>
               <span className="font-bold text-cyan-300 font-mono">
-                {typeof hoveredNode.value === 'number'
+                {typeof hoveredNode.value === 'object' && hoveredNode.value !== null
+                  ? JSON.stringify(hoveredNode.value)
+                  : typeof hoveredNode.value === 'number'
                   ? hoveredNode.value.toLocaleString(undefined, { maximumFractionDigits: 1 })
-                  : hoveredNode.value}
+                  : String(hoveredNode.value ?? '')}
               </span>
             </div>
             {hoveredNode.share_pct !== undefined && (
@@ -331,13 +354,15 @@ const GeographicMapRenderer: React.FC<GeoMapProps> = ({ data, chartId }) => {
                   }`}
                 >
                   <div className="flex items-center justify-between text-[11px]">
-                    <span className="text-slate-300 font-medium truncate max-w-[85px]">{item.label}</span>
+                    <span className="text-slate-300 font-medium truncate max-w-[85px]">{typeof item.label === 'object' ? JSON.stringify(item.label) : String(item.label || '')}</span>
                     <span className="font-mono font-bold text-white text-[10px]">
-                      {typeof item.value === 'number'
+                      {typeof item.value === 'object' && item.value !== null
+                        ? JSON.stringify(item.value)
+                        : typeof item.value === 'number'
                         ? item.value >= 1000
                           ? `${(item.value / 1000).toFixed(1)}k`
                           : item.value.toLocaleString()
-                        : item.value}
+                        : String(item.value ?? '')}
                     </span>
                   </div>
                   <div className="w-full bg-slate-800 h-1 rounded-full mt-1 overflow-hidden">
@@ -542,7 +567,11 @@ const CustomTreemapTile = (props: any) => {
           fontWeight="700"
           className="select-none pointer-events-none drop-shadow-md"
         >
-          {name && name.length > Math.floor(width / 7) ? `${name.substring(0, Math.floor(width / 7))}…` : name}
+          {typeof name === 'object' && name !== null
+            ? JSON.stringify(name)
+            : name && name.length > Math.floor(width / 7)
+            ? `${name.substring(0, Math.floor(width / 7))}…`
+            : String(name || '')}
         </text>
       )}
       {width > 50 && height > 44 && (
@@ -555,7 +584,11 @@ const CustomTreemapTile = (props: any) => {
           fontWeight="600"
           className="select-none pointer-events-none"
         >
-          {typeof value === 'number' ? (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString()) : value}
+          {typeof value === 'object' && value !== null
+            ? JSON.stringify(value)
+            : typeof value === 'number'
+            ? (value >= 1000 ? `${(value / 1000).toFixed(1)}k` : value.toLocaleString())
+            : String(value ?? '')}
         </text>
       )}
       {width > 65 && height > 60 && share_pct !== undefined && (
@@ -603,7 +636,79 @@ const TreemapRenderer: React.FC<{ data: Array<any>; chartId: string }> = ({ data
 };
 
 export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
-  const data = chart.data || [];
+  const palette = getChartPalette(chart.config?.palette);
+  const primaryColor = palette[0] || '#06b6d4';
+  const secondaryColor = palette[1] || '#3b82f6';
+  const accentColor = palette[2] || '#8b5cf6';
+
+  const data = React.useMemo(() => {
+    let raw = (chart.data || []).map((d: any) => {
+      if (!d || typeof d !== 'object') return d;
+      let safeLabel = d.label;
+      if (typeof safeLabel === 'object' && safeLabel !== null) {
+        safeLabel = JSON.stringify(safeLabel);
+      } else if (safeLabel !== undefined && safeLabel !== null) {
+        safeLabel = String(safeLabel);
+      }
+
+      let safeValue = d.value;
+      if (typeof safeValue === 'object' && safeValue !== null) {
+        safeValue = JSON.stringify(safeValue);
+      }
+
+      let safeSecondary = d.secondary_value;
+      if (typeof safeSecondary === 'object' && safeSecondary !== null) {
+        safeSecondary = JSON.stringify(safeSecondary);
+      }
+
+      let safeX = d.x;
+      if (typeof safeX === 'object' && safeX !== null) safeX = JSON.stringify(safeX);
+
+      let safeY = d.y;
+      if (typeof safeY === 'object' && safeY !== null) safeY = JSON.stringify(safeY);
+
+      return {
+        ...d,
+        label: safeLabel,
+        value: safeValue,
+        secondary_value: safeSecondary,
+        x: safeX,
+        y: safeY,
+      };
+    });
+
+    const sortOrder = chart.config?.sort_order;
+    const topN = chart.config?.top_n;
+    const ctype = chart.chart_type?.toLowerCase();
+
+    if (sortOrder && ctype !== 'line' && ctype !== 'area' && ctype !== 'scatter') {
+      if (sortOrder === 'asc') {
+        raw = [...raw].sort((a, b) => (Number(a.value) || 0) - (Number(b.value) || 0));
+      } else if (sortOrder === 'desc') {
+        raw = [...raw].sort((a, b) => (Number(b.value) || 0) - (Number(a.value) || 0));
+      } else if (sortOrder === 'label') {
+        raw = [...raw].sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
+      }
+    }
+
+    if (topN && typeof topN === 'number' && topN > 0) {
+      raw = raw.slice(0, topN);
+    }
+
+    return raw;
+  }, [chart.data, chart.config?.sort_order, chart.config?.top_n, chart.chart_type]);
+
+  const formatTick = (v: any) => {
+    if (typeof v !== 'number') return v;
+    const numFmt = chart.config?.number_format;
+    if (numFmt === 'currency') {
+      return v >= 1000 ? `$${(v / 1000).toFixed(0)}k` : `$${v.toFixed(0)}`;
+    }
+    if (numFmt === 'percent') {
+      return `${v.toFixed(0)}%`;
+    }
+    return v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v;
+  };
 
   if (!data || data.length === 0) {
     return (
@@ -641,8 +746,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
             <AreaChart data={data} margin={{ top: 14, right: 20, left: 12, bottom: 28 }}>
               <defs>
                 <linearGradient id={`gradient-${chart.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#6366f1" stopOpacity={0.45} />
-                  <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0} />
+                  <stop offset="5%" stopColor={primaryColor} stopOpacity={0.5} />
+                  <stop offset="95%" stopColor={secondaryColor} stopOpacity={0.0} />
                 </linearGradient>
                 <linearGradient id={`gradient-forecast-${chart.id}`} x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.35} />
@@ -666,7 +771,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
                 axisLine={{ stroke: '#334155' }}
                 tickMargin={8}
                 width={48}
-                tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)}
+                tickFormatter={formatTick}
               />
               <Tooltip content={<CustomTooltip />} />
               {hasForecast && <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '8px' }} />}
@@ -674,12 +779,11 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
                 type="monotone"
                 name="Historical Actual"
                 dataKey="value"
-                stroke="#6366f1"
+                stroke={primaryColor}
                 strokeWidth={2.5}
                 fillOpacity={1}
                 fill={`url(#gradient-${chart.id})`}
-                dot={{ fill: '#6366f1', r: 3.5, strokeWidth: 1.5, stroke: '#ffffff' }}
-                activeDot={{ r: 6, fill: '#818cf8', stroke: '#ffffff', strokeWidth: 2 }}
+                dot={{ fill: primaryColor, r: 3.5, strokeWidth: 1.5, stroke: '#ffffff' }}
               />
               {hasForecast && (
                 <Area
@@ -741,8 +845,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
             <ComposedChart data={data} margin={{ top: 14, right: 24, left: 12, bottom: 28 }}>
               <defs>
                 <linearGradient id={`composed-bar-${chart.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#818cf8" stopOpacity={0.95} />
-                  <stop offset="100%" stopColor="#4338ca" stopOpacity={0.8} />
+                  <stop offset="0%" stopColor={primaryColor} stopOpacity={0.95} />
+                  <stop offset="100%" stopColor={secondaryColor} stopOpacity={0.8} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
@@ -757,25 +861,25 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
               />
               <YAxis
                 yAxisId="left"
-                stroke="#818cf8"
+                stroke={primaryColor}
                 fontSize={11}
                 tickLine={false}
-                axisLine={{ stroke: '#4f46e5' }}
+                axisLine={{ stroke: primaryColor }}
                 tickMargin={8}
                 width={48}
-                tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)}
+                tickFormatter={formatTick}
               />
               {hasSecondary && (
                 <YAxis
                   yAxisId="right"
                   orientation="right"
-                  stroke="#34d399"
+                  stroke={secondaryColor}
                   fontSize={11}
                   tickLine={false}
-                  axisLine={{ stroke: '#059669' }}
+                  axisLine={{ stroke: secondaryColor }}
                   tickMargin={8}
                   width={48}
-                  tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)}
+                  tickFormatter={formatTick}
                 />
               )}
               <Tooltip content={<CustomTooltip />} />
@@ -793,10 +897,10 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
                   name={chart.secondary_y_field || 'Secondary Trend'}
                   type="monotone"
                   dataKey="secondary_value"
-                  stroke="#10b981"
+                  stroke={secondaryColor}
                   strokeWidth={2.5}
-                  dot={{ fill: '#10b981', r: 4, strokeWidth: 1.5, stroke: '#ffffff' }}
-                  activeDot={{ r: 6, fill: '#34d399', stroke: '#ffffff', strokeWidth: 2 }}
+                  dot={{ fill: secondaryColor, r: 4, strokeWidth: 1.5, stroke: '#ffffff' }}
+                  activeDot={{ r: 6, fill: accentColor, stroke: '#ffffff', strokeWidth: 2 }}
                 />
               )}
             </ComposedChart>
@@ -805,8 +909,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
             <RadarChart cx="50%" cy="50%" outerRadius="72%" data={data}>
               <defs>
                 <linearGradient id={`radar-grad-${chart.id}`} x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#a855f7" stopOpacity={0.6} />
-                  <stop offset="100%" stopColor="#6366f1" stopOpacity={0.2} />
+                  <stop offset="0%" stopColor={primaryColor} stopOpacity={0.6} />
+                  <stop offset="100%" stopColor={secondaryColor} stopOpacity={0.2} />
                 </linearGradient>
               </defs>
               <PolarGrid stroke="#334155" strokeDasharray="3 3" />
@@ -824,7 +928,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
               <Radar
                 name={chart.title || 'Profile'}
                 dataKey="value"
-                stroke="#a855f7"
+                stroke={primaryColor}
                 strokeWidth={2}
                 fill={`url(#radar-grad-${chart.id})`}
                 fillOpacity={0.6}
@@ -848,7 +952,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
                 {data.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={PALETTES[index % PALETTES.length]}
+                    fill={palette[index % palette.length]}
                     stroke="#0C1222"
                     strokeWidth={2}
                   />
@@ -860,9 +964,9 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
             <ScatterChart margin={{ top: 14, right: 20, left: 12, bottom: 28 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" />
               <XAxis dataKey="x" stroke="#64748b" fontSize={11} tickLine={false} tickMargin={8} />
-              <YAxis dataKey="y" stroke="#64748b" fontSize={11} tickLine={false} tickMargin={8} width={48} />
+              <YAxis dataKey="y" stroke="#64748b" fontSize={11} tickLine={false} tickMargin={8} width={48} tickFormatter={formatTick} />
               <Tooltip content={<CustomTooltip />} />
-              <Scatter data={data} fill="#8b5cf6" />
+              <Scatter data={data} fill={primaryColor} />
             </ScatterChart>
           ) : chartType === 'histogram' ? (
             /* 7b. Anomaly / Dispersion Histogram */
@@ -889,6 +993,7 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
                 axisLine={{ stroke: '#334155' }}
                 tickMargin={8}
                 width={44}
+                tickFormatter={formatTick}
               />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="value" name="Frequency Count" radius={[4, 4, 0, 0]} fill={`url(#hist-gradient-${chart.id})`} />
@@ -906,13 +1011,15 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
                 <tbody className="divide-y divide-slate-800/60">
                   {data.slice(0, 8).map((row, i) => (
                     <tr key={i} className="hover:bg-slate-800/40 transition">
-                      <td className="py-3 px-3.5 text-white font-medium">{row.label}</td>
-                      <td className="py-3 px-3.5 text-right text-brand-300 font-mono font-bold">
+                      <td className="py-3 px-3.5 text-white font-medium max-w-[200px] truncate" title={typeof row.label === 'object' ? JSON.stringify(row.label) : String(row.label ?? '')}>
+                        {typeof row.label === 'object' ? JSON.stringify(row.label) : String(row.label ?? '')}
+                      </td>
+                      <td className="py-3 px-3.5 text-right text-brand-300 font-mono font-bold max-w-xs truncate" title={typeof row.value === 'object' ? JSON.stringify(row.value) : String(row.value ?? '')}>
                         {typeof row.value === 'object'
                           ? JSON.stringify(row.value)
                           : typeof row.value === 'number'
                           ? row.value.toLocaleString()
-                          : row.value}
+                          : String(row.value ?? '')}
                       </td>
                     </tr>
                   ))}
@@ -924,8 +1031,8 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
             <BarChart data={data} margin={{ top: 14, right: 20, left: 12, bottom: 28 }}>
               <defs>
                 <linearGradient id={`bar-gradient-${chart.id}`} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#818cf8" stopOpacity={1} />
-                  <stop offset="100%" stopColor="#4f46e5" stopOpacity={0.85} />
+                  <stop offset="0%" stopColor={primaryColor} stopOpacity={1} />
+                  <stop offset="100%" stopColor={secondaryColor} stopOpacity={0.85} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.05)" vertical={false} />
@@ -945,14 +1052,14 @@ export const ChartRenderer: React.FC<ChartRendererProps> = ({ chart }) => {
                 axisLine={{ stroke: '#334155' }}
                 tickMargin={8}
                 width={48}
-                tickFormatter={(v) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : v)}
+                tickFormatter={formatTick}
               />
               <Tooltip content={<CustomTooltip />} />
               <Bar dataKey="value" radius={[6, 6, 0, 0]} fill={`url(#bar-gradient-${chart.id})`}>
                 {data.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={PALETTES[index % PALETTES.length]}
+                    fill={palette[index % palette.length]}
                     opacity={0.9}
                   />
                 ))}

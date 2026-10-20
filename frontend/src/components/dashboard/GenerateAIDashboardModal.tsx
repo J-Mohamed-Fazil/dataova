@@ -37,7 +37,8 @@ const PALETTES = [
   { id: 'cyberpunk', name: 'Cyberpunk Neon', colors: ['#06b6d4', '#3b82f6', '#8b5cf6', '#ec4899'] },
   { id: 'emerald', name: 'Executive Emerald', colors: ['#10b981', '#059669', '#14b8a6', '#34d399'] },
   { id: 'corporate', name: 'Corporate Indigo', colors: ['#3b82f6', '#4f46e5', '#2563eb', '#6366f1'] },
-  { id: 'sunset', name: 'Sunset Amber', colors: ['#f59e0b', '#ea580c', '#f97316', '#e11d48'] }
+  { id: 'sunset', name: 'Sunset Amber', colors: ['#f59e0b', '#ea580c', '#f97316', '#e11d48'] },
+  { id: 'purple', name: 'Royal Purple', colors: ['#8b5cf6', '#a855f7', '#7c3aed', '#c084fc'] }
 ];
 
 const getArchetypeIcon = (iconType?: string, id?: string) => {
@@ -76,6 +77,9 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
   const [customPrompt, setCustomPrompt] = useState<string>('');
   const [selectedPalette, setSelectedPalette] = useState<string>('cyberpunk');
   const [mode, setMode] = useState<'add_sheet' | 'replace_all'>('replace_all');
+  const [density, setDensity] = useState<'focused' | 'balanced' | 'comprehensive'>('balanced');
+  const [enableForecast, setEnableForecast] = useState<boolean>(true);
+  const [includeAnomalies, setIncludeAnomalies] = useState<boolean>(true);
   const [selectedMetricFocus, setSelectedMetricFocus] = useState<string[]>([]);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [progressStep, setProgressStep] = useState<number>(0);
@@ -242,7 +246,11 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
         prompt: combinedPrompt,
         preset: targetPreset,
         palette: selectedPalette,
-        mode
+        mode,
+        density,
+        enable_forecast: enableForecast,
+        include_anomalies: includeAnomalies,
+        visual_flavor: selectedPalette
       });
       clearInterval(stepInterval);
       const totalNewCharts = regenerated.reduce((sum, s) => sum + (s.charts?.length || 0), 0);
@@ -610,6 +618,117 @@ export const GenerateAIDashboardModal: React.FC<GenerateAIDashboardModalProps> =
                     ))}
                   </div>
                 )}
+              </div>
+
+              {/* Synthesis Density & Intelligence Levers (NEW) */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-slate-950/90 via-indigo-950/30 to-slate-950/90 border border-indigo-500/30 space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Synthesis Density & Advanced Analytics Levers</span>
+                  </label>
+                  <span className="text-[10px] text-cyan-300 font-mono font-semibold">
+                    Configurable Depth
+                  </span>
+                </div>
+
+                {/* Density Selection Buttons */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setDensity('focused')}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      density === 'focused'
+                        ? 'bg-cyan-500/20 border-cyan-400 text-white shadow-md shadow-cyan-500/10'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold">Focused</span>
+                      <span className="text-[10px] font-mono text-cyan-300 font-bold">4 Charts</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                      Core KPIs, primary bar breakdown & top distribution.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDensity('balanced')}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      density === 'balanced'
+                        ? 'bg-indigo-500/20 border-indigo-400 text-white shadow-md shadow-indigo-500/10'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold">Balanced</span>
+                      <span className="text-[10px] font-mono text-indigo-300 font-bold">6 Charts</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                      Combo dual-axis, time trajectories & radar profile.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setDensity('comprehensive')}
+                    className={`p-3 rounded-xl border text-left transition ${
+                      density === 'comprehensive'
+                        ? 'bg-purple-500/20 border-purple-400 text-white shadow-md shadow-purple-500/10'
+                        : 'bg-slate-900/60 border-slate-800 text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold">Comprehensive</span>
+                      <span className="text-[10px] font-mono text-purple-300 font-bold">8+ Charts</span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1 leading-snug">
+                      Adds 2D matrix heatmaps, treemap tiles & 2σ anomalies.
+                    </p>
+                  </button>
+                </div>
+
+                {/* Intelligence Toggles */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <TrendingUp className="w-3.5 h-3.5 text-emerald-400" />
+                      <div>
+                        <div className="text-xs font-semibold text-white">Automated Time-Series Forecasting</div>
+                        <div className="text-[10px] text-slate-400">Holt&apos;s Linear with 95% Confidence Intervals</div>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={enableForecast}
+                        onChange={(e) => setEnableForecast(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-emerald-500"></div>
+                    </label>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                      <div>
+                        <div className="text-xs font-semibold text-white">Statistical Anomaly &amp; 2σ Detection</div>
+                        <div className="text-[10px] text-slate-400">Z-score outlier flags &amp; variance warnings</div>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={includeAnomalies}
+                        onChange={(e) => setIncludeAnomalies(e.target.checked)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-500"></div>
+                    </label>
+                  </div>
+                </div>
               </div>
 
               {/* Synthesis Scope Preview Box */}

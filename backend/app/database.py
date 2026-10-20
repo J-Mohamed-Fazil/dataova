@@ -10,7 +10,7 @@ def utc_now() -> datetime:
 # If using SQLite, check_same_thread=False is required for FastAPI multithreading
 connect_args = {}
 if settings.DATABASE_URL.startswith("sqlite"):
-    connect_args = {"check_same_thread": False, "timeout": 15}
+    connect_args = {"check_same_thread": False, "timeout": 60}
 
 engine = create_engine(
     settings.DATABASE_URL,
@@ -26,7 +26,7 @@ if settings.DATABASE_URL.startswith("sqlite"):
         try:
             cursor.execute("PRAGMA journal_mode=WAL;")
             cursor.execute("PRAGMA synchronous=NORMAL;")
-            cursor.execute("PRAGMA busy_timeout=10000;")
+            cursor.execute("PRAGMA busy_timeout=60000;")
             cursor.execute("PRAGMA cache_size=-64000;")
             cursor.execute("PRAGMA foreign_keys=ON;")
         except Exception:

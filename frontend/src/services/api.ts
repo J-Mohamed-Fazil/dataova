@@ -210,7 +210,14 @@ export const api = {
     const res = await authFetch(`${API_BASE}/dashboard/${datasetId}/generate-all`, {
       method: 'POST'
     });
-    if (!res.ok) throw new Error('Failed to generate all dashboards');
+    if (!res.ok) {
+      let detail = 'Failed to generate all dashboards';
+      try {
+        const errJson = await res.json();
+        detail = errJson.detail || detail;
+      } catch {}
+      throw new Error(detail);
+    }
     return res.json();
   },
 
@@ -221,6 +228,10 @@ export const api = {
       preset?: string;
       palette?: string;
       mode?: 'add_sheet' | 'replace_all';
+      density?: 'focused' | 'balanced' | 'comprehensive';
+      enable_forecast?: boolean;
+      include_anomalies?: boolean;
+      visual_flavor?: string;
     }
   ): Promise<DashboardSheet[]> => {
     const res = await authFetch(`${API_BASE}/dashboard/${datasetId}/ai-generate-dashboard`, {
@@ -259,6 +270,10 @@ export const api = {
       preset?: string;
       palette?: string;
       mode?: 'add_sheet' | 'replace_all';
+      density?: 'focused' | 'balanced' | 'comprehensive';
+      enable_forecast?: boolean;
+      include_anomalies?: boolean;
+      visual_flavor?: string;
     }
   ): Promise<DashboardSheet[]> => {
     const res = await authFetch(`${API_BASE}/dashboard/${datasetId}/ai-agent-generate`, {

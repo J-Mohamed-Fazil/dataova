@@ -71,12 +71,14 @@ const formatColumnName = (col: string): string => {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 };
 
-const formatSegmentId = (seg: string): string => {
+const formatSegmentId = (seg: any): string => {
   if (!seg) return 'All';
-  if (seg.length > 18 && /^[0-9a-fA-F-]+$/.test(seg)) {
-    return `#${seg.slice(0, 6)}...${seg.slice(-4)}`;
+  if (typeof seg === 'object') return JSON.stringify(seg);
+  const str = String(seg);
+  if (str.length > 18 && /^[0-9a-fA-F-]+$/.test(str)) {
+    return `#${str.slice(0, 6)}...${str.slice(-4)}`;
   }
-  return seg;
+  return str;
 };
 
 export const ScenarioPlannerModal: React.FC<ScenarioPlannerModalProps> = ({

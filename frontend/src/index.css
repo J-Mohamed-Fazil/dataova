@@ -1302,3 +1302,78 @@
   margin-bottom:1rem;box-shadow:0 0 20px rgba(37,99,235,.1);
 }
 
+/* ============================================================
+   E-ER MODEL STUDIO GRAPHICS & CANVAS ANIMATIONS
+   ============================================================ */
+@keyframes eerDashFlow {
+  to {
+    stroke-dashoffset: -32;
+  }
+}
+
+@keyframes eerPortPulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 6px rgba(6, 182, 212, 0.7);
+  }
+  50% {
+    transform: scale(1.35);
+    box-shadow: 0 0 16px rgba(6, 182, 212, 1), 0 0 24px rgba(59, 130, 246, 0.85);
+  }
+}
+
+@keyframes eerParticleGlow {
+  0%, 100% {
+    opacity: 0.8;
+    filter: drop-shadow(0 0 4px #38bdf8);
+  }
+  50% {
+    opacity: 1;
+    filter: drop-shadow(0 0 10px #38bdf8) drop-shadow(0 0 18px #818cf8);
+  }
+}
+
+.eer-wire-flow {
+  animation: eerDashFlow 1.2s linear infinite;
+}
+
+.eer-port-beacon {
+  animation: eerPortPulse 2s ease-in-out infinite;
+}
+
+.eer-particle-glow {
+  animation: eerParticleGlow 1.5s ease-in-out infinite;
+}
+
+.eer-grid-blueprint {
+  background-color: #040915;
+  background-image: 
+    linear-gradient(rgba(14, 165, 233, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.08) 1px, transparent 1px),
+    linear-gradient(rgba(14, 165, 233, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(14, 165, 233, 0.03) 1px, transparent 1px);
+}
+
+.eer-grid-dots {
+  background-color: #050b18;
+  background-image:
+    radial-gradient(rgba(99, 102, 241, 0.22) 1.5px, transparent 1.5px),
+    radial-gradient(rgba(6, 182, 212, 0.14) 1px, transparent 1px);
+}
+
+.eer-grid-matrix {
+  background-color: #020712;
+  background-image:
+    radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.05) 0%, transparent 80%),
+    linear-gradient(rgba(16, 185, 129, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.07) 1px, transparent 1px);
+}
+
+.eer-grid-minimal {
+  background-color: #030712;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+}
+
+
