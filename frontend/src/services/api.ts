@@ -49,8 +49,8 @@ import {
   AuthUser,
   AuthResponse
 } from '../types';
-
-const API_BASE = '/api';
+const envApiUrl = import.meta.env.VITE_API_URL ? String(import.meta.env.VITE_API_URL).replace(/\/$/, '') : '';
+const API_BASE = envApiUrl ? `${envApiUrl}/api` : '/api';
 
 export const authFetch = async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const token = localStorage.getItem('datanova_auth_token');

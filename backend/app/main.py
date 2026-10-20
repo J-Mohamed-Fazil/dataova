@@ -40,10 +40,10 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS
+# CORS - allow all origins in development and production (e.g. Vercel, Netlify, localhost)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all for flexible development and hackathon testing
+    allow_origin_regex=r"https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
